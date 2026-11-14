@@ -1,27 +1,24 @@
-# Kiitou Asset Transfer Procedure
-The source art is supplied as a complete byte-preserving handoff archive titled Kiitou_Asset_Handoff.zip in the originating ChatGPT conversation. It is NOT yet in GitHub.
+# Kiitou Asset Transfer Record
 
-## Archive verification
-Archive SHA-256:
-159ca5a930df659f7ddd6dfa27daa9d1a668aab497c75ff6c08aa42917aca93d
+## What is in the repository
+Verified on 2026-11-14 by extracting the uploaded `Kiitou_Asset_Handoff.zip` (commit fab1497) without altering any bytes:
 
-Archive contents: 15 approved-icons items (7 ICO, 7 PNG, 1 README); 1 explicitly approved primary UI screenshot; 7 later themed exploratory concepts; 7 earlier concept images; 1 original approved icon ZIP; plus MANIFEST.json containing per-file SHA-256 checksums. Total 32 archive members. Original bytes are preserved, not resynthesized.
+- `assets/icons/`: 7 ICO files, 7 PNG masters and README.txt (the approved routed-K icon pack). Each ICO was confirmed to contain 7 images.
+- `assets/ui/approved/kiitou_approved_primary_ui.png`: the approved primary UI screenshot, 1536 x 1024.
 
-## Intended destinations
-- approved-icons/* -> assets/icons/*
-- approved-ui/* -> assets/ui/approved/*
-- theme-concepts/* -> assets/ui/theme-concepts/*
-- initial-concepts/* -> assets/ui/explorations/*
-- archive/* -> assets/source-archives/*
+The uploaded archive had SHA-256
+41758a226e7c15c90cae0b799061acb186b547f597cbadd70c9ba42f9df1cff8
+and 16 members. After extraction it was removed from the repository root; it remains in git history at commit fab1497.
 
-## Handoff to a binary-capable operator
-1. Obtain the exact archive from the project chat.
-2. Confirm the whole-file SHA-256 above.
-3. Extract the ZIP.
-4. Copy its files into the destination paths above, preserving content.
-5. Commit/push binaries via authenticated Git, GitHub Desktop, or another connector that supports local binary uploads.
-6. Re-read each committed file, compare it with MANIFEST.json by SHA-256, and update this handoff document with the verified commit SHA.
-7. Do not claim assets were uploaded until repository paths exist and the hashes match.
+## What is still missing
+The archive described in the original handoff (SHA-256 159ca5a930df659f7ddd6dfa27daa9d1a668aab497c75ff6c08aa42917aca93d, 32 members) is a different, larger file and has **not** been uploaded. Not present in the repository:
+
+- 7 later themed exploratory concepts -> `assets/ui/theme-concepts/`
+- 7 earlier concept images -> `assets/ui/explorations/`
+- the original approved icon ZIP -> `assets/source-archives/`
+- MANIFEST.json with per-file SHA-256 checksums
+
+Because MANIFEST.json is absent, the committed files could not be compared against the original per-file checksums. These missing items are references only; none is needed to build Kiitou.
 
 ## Approval
-The single primary original UI image is the approved layout. The separate themed and earlier UI images are merely visual references. The seven ICON images are approved. Do not interpret screenshot sizes as Kiitou's final window dimensions.
+The single primary original UI image is the approved layout. The separate themed and earlier UI images are merely visual references. The seven icon images are approved. Do not interpret screenshot sizes as Kiitou's final window dimensions.

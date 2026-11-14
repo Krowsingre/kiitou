@@ -37,8 +37,9 @@ a Default profile, and the purple/dark theme. No hosts-file changes occur in Pas
 ## Theme foundations
 
 Seven approved color families: purple, blue, green, gold, red, silver, teal.
-Each supports light and dark modes. Matching icon filenames are reserved in
-`ThemeCatalog`; actual icon embedding and runtime switching belong to Pass 7.
+Each supports light and dark modes. The approved icons are in `assets/icons/`
+and their filenames are reserved in `ThemeCatalog`; actual icon embedding and
+runtime switching belong to Pass 7.
 
 ## Scope
 

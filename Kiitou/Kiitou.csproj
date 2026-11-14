@@ -8,4 +8,7 @@
     <AssemblyName>Kiitou</AssemblyName>
     <RootNamespace>Kiitou</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Kiitou.Core\Kiitou.Core.csproj" />
+  </ItemGroup>
 </Project>

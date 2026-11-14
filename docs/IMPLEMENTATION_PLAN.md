@@ -24,4 +24,4 @@ After every pass report implementation Completed/Partial/Blocked; functional aud
 After **every** pass provide ONLY a standalone Kiitou.exe direct download. GitHub holds the source/audit files. GitHub Actions is the chosen Windows build environment and release publisher.
 
 ## Current position
-Pass 1 source is in GitHub, but no successful Windows compile/startup was confirmed. User reports repeated workflow failures. Treat Pass 1 as **partial, gate not cleared**. Do not begin Pass 2 until fixed and verified.
+Pass 1 source builds on the GitHub Windows runner and the `pass-1` executable passed startup, persistence, fallback and error-safety tests on one developer PC (2026-11-14). The earlier workflow failures were an account billing block, not a code fault. Corrective fixes from the audit still need a build and re-test, and a clean-machine run is outstanding. Treat Pass 1 as **verified except for those items; gate not yet closed by the user**. Do not begin Pass 2 until it is.

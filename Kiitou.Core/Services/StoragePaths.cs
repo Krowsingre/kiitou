@@ -1,17 +1,19 @@
-using System.IO;
-
 namespace Kiitou.Services;
 
 public sealed record StoragePaths(string ApplicationDirectory, string DataDirectory, bool Portable)
 {
-    public static StoragePaths Resolve()
-    {
-        string applicationDirectory = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
-        string localData = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kiitou");
+    public static StoragePaths Resolve() => Resolve(
+        AppContext.BaseDirectory,
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
 
-        // Use an already-existing writable portable config directory, or the
-        // executable folder when writable. Never require program installation.
+    public static StoragePaths Resolve(string baseDirectory, string localApplicationData)
+    {
+        // Keeps the separator on a drive root ("E:\"), so paths never become drive-relative ("E:config.json").
+        string applicationDirectory = Path.TrimEndingDirectorySeparator(baseDirectory);
+        string localData = Path.Combine(localApplicationData, "Kiitou");
+
+        // Portable-first: use the executable folder whenever it is writable,
+        // otherwise fall back to Local AppData. Never require program installation.
         if (CanWrite(applicationDirectory))
             return new StoragePaths(applicationDirectory, applicationDirectory, true);
 

@@ -7,6 +7,15 @@ public partial class App : Application
 {
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        DispatcherUnhandledException += (_, args) =>
+        {
+            MessageBox.Show(
+                "Kiitou encountered an unexpected error and must close.\n\n" + args.Exception.Message,
+                "Kiitou error", MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true;
+            Shutdown(1);
+        };
+
         try
         {
             var store = new ConfigurationStore(StoragePaths.Resolve());
