@@ -22,13 +22,13 @@
 - After every pass perform functional, technical and scope audits, report unresolved failures and obtain approval for substantive scope changes.
 
 ## Critical unresolved items
-1. Windows build failures: obtain actual Actions run/job logs; previous connector queries didn't surface push-run logs, so do not guess the cause.
-2. Pass 1 Windows startup/config/storage testing incomplete.
+1. Windows build failures: **resolved 2026-11-14.** All ten failures were GitHub refusing to start the job for account billing reasons while the repository was private; no code or workflow step had run. After the repository was made public, the unchanged source built and published `Kiitou.exe` to the `pass-1` prerelease.
+2. Pass 1 Windows startup/config/storage testing: done on one developer PC against the `pass-1` executable (see [PASS_01_AUDIT.md](PASS_01_AUDIT.md)). Clean-machine and drive-root runs remain untested.
 3. Whisper Light maximum-size reference unknown. Ghostblood minimum reference cited as 720x450.
-4. Original binary assets were prepared as a separate exact-byte handoff package in the conversation. Their binary bytes are **not uploaded to this GitHub tree** by the available connector. Manifest documents sources and intended paths, not verified repository presence.
+4. The approved icons and approved UI screenshot are in `assets/`. The concept images, original icon ZIP and MANIFEST.json are still not in the repository; see [ASSET_TRANSFER.md](ASSET_TRANSFER.md).
 5. Four security statuses must not conflate reachability with authenticity or safety.
 
 ## Recommended immediate handoff activity
-Inspect repo, retrieve failed CI run logs, repair within locked scope, build and validate the initial self-contained Kiitou.exe, report results. Upload exact original art using a binary-capable authenticated Git client/workflow when available, then verify SHA-256 checksums. Pass 2 remains blocked until the Pass 1 gate is cleared.
+Build and re-test the Pass 1 corrective fixes listed in [PASS_01_AUDIT.md](PASS_01_AUDIT.md), run the executable on a clean Windows machine, then ask the user to close the Pass 1 gate. Pass 2 remains blocked until the user clears it.
 
 No software scope changes are authorized by this documentation alone.

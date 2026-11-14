@@ -7,7 +7,7 @@ public sealed class AppConfiguration
     public int SchemaVersion { get; set; } = 1;
     public ThemeSelection Theme { get; set; } = new();
     public List<WebsiteEntry> Websites { get; set; } = [];
-    public List<MappingProfile> Profiles { get; set; } = [new() { Name = "Default" }];
+    public List<MappingProfile> Profiles { get; set; } = [];
     public Guid ActiveProfileId { get; set; }
 
     public static AppConfiguration CreateDefault()
