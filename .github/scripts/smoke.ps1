@@ -76,5 +76,51 @@ if ($p.MainWindowTitle -ne "Kiitou startup error") { throw "Expected the startup
 $p.Kill(); [void]$p.WaitForExit(5000)
 if ((Get-FileHash $config).Hash -ne $corruptHash) { throw "The corrupted configuration file was modified" }
 
+Write-Host "== Privileged hosts helper (build runner only)"
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$elevated = ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
+    $hostsPath = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
+    function Get-HostsText { [System.Text.Encoding]::Latin1.GetString([System.IO.File]::ReadAllBytes($hostsPath)) }
+    $beforeText = Get-HostsText
+
+    function Invoke-Helper([string]$Sha, [object[]]$Mappings) {
+        $request = [ordered]@{ Operation = "apply"; ExpectedSha256 = $Sha; Mappings = @($Mappings) } | ConvertTo-Json -Depth 4
+        $file = Join-Path $work "request.json"
+        [System.IO.File]::WriteAllText($file, $request)
+        $helper = Start-Process $exeCopy -ArgumentList "--hosts-helper", "`"$file`"" -PassThru -Wait
+        return $helper.ExitCode
+    }
+    function Get-HostsSha { (Get-FileHash $hostsPath -Algorithm SHA256).Hash }
+
+    $mapping = @{ IpAddress = "203.0.113.78"; Hostname = "kiitou-smoke.example" }
+
+    $code = Invoke-Helper ("0" * 64) @($mapping)
+    if ($code -ne 3) { throw "Helper should refuse a stale hash with exit code 3, got $code" }
+    $code = Invoke-Helper (Get-HostsSha) @(@{ IpAddress = "203.0.113.78"; Hostname = "bad host # x" })
+    if ($code -ne 2) { throw "Helper should refuse an invalid mapping with exit code 2, got $code" }
+    if (-not ((Get-HostsText) -ceq $beforeText)) { throw "Refused requests modified the hosts file" }
+
+    $code = Invoke-Helper (Get-HostsSha) @($mapping)
+    if ($code -ne 0) { throw "Helper apply failed with exit code $code" }
+    if (-not (Select-String -Path $hostsPath -SimpleMatch "203.0.113.78 kiitou-smoke.example # Kiitou" -Quiet)) {
+        throw "The mapping was not written to the hosts file"
+    }
+    $resolved = [System.Net.Dns]::GetHostAddresses("kiitou-smoke.example") | ForEach-Object { $_.ToString() }
+    if ($resolved -notcontains "203.0.113.78") { throw "Windows did not resolve the new mapping (got: $resolved)" }
+
+    $code = Invoke-Helper (Get-HostsSha) @()
+    if ($code -ne 0) { throw "Helper removal failed with exit code $code" }
+    $afterText = Get-HostsText
+    if ($afterText -match "Kiitou") { throw "Managed entries were not fully removed" }
+    # Kiitou may add one line break if the file did not end with one; nothing else may differ.
+    if (-not (($afterText -ceq $beforeText) -or ($afterText -ceq ($beforeText + "`r`n")) -or ($afterText -ceq ($beforeText + "`n")))) {
+        throw "Unrelated hosts content changed"
+    }
+    Write-Host "  helper apply, refusal and removal verified against the real hosts file"
+} else {
+    Write-Host "  skipped (not an elevated build runner)"
+}
+
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "Smoke test passed."

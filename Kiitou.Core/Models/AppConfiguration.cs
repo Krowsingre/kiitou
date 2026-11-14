@@ -9,6 +9,7 @@ public sealed class AppConfiguration
     public List<WebsiteEntry> Websites { get; set; } = [];
     public List<MappingProfile> Profiles { get; set; } = [];
     public Guid ActiveProfileId { get; set; }
+    public HostsState Hosts { get; set; } = new();
 
     public static AppConfiguration CreateDefault()
     {
@@ -19,6 +20,15 @@ public sealed class AppConfiguration
             ActiveProfileId = profile.Id
         };
     }
+}
+
+/// <summary>What Kiitou last wrote to the system hosts file. Independent of the saved websites and profiles.</summary>
+public sealed class HostsState
+{
+    /// <summary>SHA-256 of the hosts file immediately after Kiitou's last write; used to notice outside edits.</summary>
+    public string? LastWrittenSha256 { get; set; }
+    public DateTime? LastAppliedUtc { get; set; }
+    public Guid? LastAppliedProfileId { get; set; }
 }
 
 public sealed class ThemeSelection

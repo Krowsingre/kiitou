@@ -1,4 +1,5 @@
 using System.Windows;
+using Kiitou.Hosts;
 using Kiitou.Services;
 
 namespace Kiitou;
@@ -7,6 +8,22 @@ public partial class App : Application
 {
     private void Application_Startup(object sender, StartupEventArgs e)
     {
+        // Elevated helper mode: perform the one requested hosts-file write and exit without any UI.
+        if (e.Args.Length > 0 && e.Args[0] == HostsHelper.Switch)
+        {
+            int exitCode;
+            try
+            {
+                exitCode = HostsHelper.Run(e.Args);
+            }
+            catch (Exception)
+            {
+                exitCode = (int)HostsWriteOutcome.WriteFailed;
+            }
+            Shutdown(exitCode);
+            return;
+        }
+
         DispatcherUnhandledException += (_, args) =>
         {
             MessageBox.Show(

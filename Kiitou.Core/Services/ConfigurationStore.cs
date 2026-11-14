@@ -67,6 +67,7 @@ public sealed class ConfigurationStore
             throw new InvalidDataException("Unsupported configuration schema version.");
         if (config.Theme is null || !ThemeCatalog.IsValid(config.Theme.Color, config.Theme.Mode))
             throw new InvalidDataException("Unrecognized theme selection.");
+        config.Hosts ??= new HostsState();
         if (config.Websites is null || config.Profiles is null || config.Profiles.Count == 0)
             throw new InvalidDataException("Configuration is missing required collections or profiles.");
         if (config.Websites.Any(w => w is null || w.Hostname is null || w.Addresses is null ||
