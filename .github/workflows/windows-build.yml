@@ -20,6 +20,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Show build environment
+        run: dotnet --info
+
       - name: Restore
         run: dotnet restore Kiitou/Kiitou.csproj
 
@@ -51,9 +54,11 @@ jobs:
         run: |
           $tag = (Get-Content release-tag.txt -Raw).Trim()
           if ($tag -notmatch '^pass-[1-9][0-9]*$') { throw "Invalid release tag" }
-          gh release view $tag 2>$null
-          if ($LASTEXITCODE -eq 0) {
+          $existing = gh release list --limit 100 --json tagName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Unable to list GitHub releases" }
+          if ($existing | Where-Object { $_.tagName -eq $tag }) {
             gh release upload $tag out/Kiitou.exe --clobber
           } else {
             gh release create $tag out/Kiitou.exe --target ${{ github.sha }} --title "Kiitou $tag (development build)" --notes "Development-phase executable. Windows compilation and single-file publishing have passed; interactive Windows startup and storage behavior still require verification." --prerelease
           }
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release publishing failed" }
