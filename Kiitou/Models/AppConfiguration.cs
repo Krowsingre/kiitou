@@ -1,0 +1,56 @@
+using System.Text.Json.Serialization;
+
+namespace Kiitou.Models;
+
+public sealed class AppConfiguration
+{
+    public int SchemaVersion { get; set; } = 1;
+    public ThemeSelection Theme { get; set; } = new();
+    public List<WebsiteEntry> Websites { get; set; } = [];
+    public List<MappingProfile> Profiles { get; set; } = [new() { Name = "Default" }];
+    public Guid ActiveProfileId { get; set; }
+
+    public static AppConfiguration CreateDefault()
+    {
+        var profile = new MappingProfile { Name = "Default" };
+        return new AppConfiguration
+        {
+            Profiles = [profile],
+            ActiveProfileId = profile.Id
+        };
+    }
+}
+
+public sealed class ThemeSelection
+{
+    public string Color { get; set; } = "purple";
+    public string Mode { get; set; } = "dark";
+}
+
+public sealed class WebsiteEntry
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Hostname { get; set; } = "";
+    public List<AddressCandidate> Addresses { get; set; } = [];
+}
+
+public sealed class AddressCandidate
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string IpAddress { get; set; } = "";
+}
+
+public sealed class MappingProfile
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public List<ProfileWebsiteSelection> Selections { get; set; } = [];
+}
+
+public sealed class ProfileWebsiteSelection
+{
+    public Guid WebsiteId { get; set; }
+    public bool Enabled { get; set; }
+    public Guid? SelectedIpv4Id { get; set; }
+    public Guid? SelectedIpv6Id { get; set; }
+}
