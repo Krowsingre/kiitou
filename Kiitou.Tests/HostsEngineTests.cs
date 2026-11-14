@@ -340,7 +340,8 @@ public class HostsEngineTests
     [Fact]
     public void RealSystemHostsFileRoundTripOnBuildRunner()
     {
-        if (Environment.GetEnvironmentVariable("KIITOU_CI") != "1" || !Environment.IsPrivilegedProcess) return;
+        if (Environment.GetEnvironmentVariable("KIITOU_CI") != "1") return;
+        Assert.True(Environment.IsPrivilegedProcess, "The build runner must be elevated for this check to run.");
 
         using var dir = new TempDirectory();
         var hosts = new HostsFileService(HostsFileService.SystemHostsPath);
