@@ -55,6 +55,8 @@ public sealed class MappingProfile
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "";
     public List<ProfileWebsiteSelection> Selections { get; set; } = [];
+    /// <summary>When this profile's choices were last explicitly saved.</summary>
+    public DateTime? LastSavedUtc { get; set; }
 }
 
 public sealed class ProfileWebsiteSelection
