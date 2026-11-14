@@ -1,5 +1,6 @@
 
 using System.Text.Json;
+using Kiitou.Hosts;
 using Kiitou.Models;
 
 namespace Kiitou.Services;
@@ -81,19 +82,37 @@ public sealed class ConfigurationStore
             HasDuplicates(config.Profiles.Select(p => p.Id)))
             throw new InvalidDataException("Configuration contains duplicate identifiers.");
 
+        foreach (WebsiteEntry website in config.Websites)
+        {
+            if (!HostnameRules.IsNormalized(website.Hostname))
+                throw new InvalidDataException($"Configuration contains an invalid hostname: \"{website.Hostname}\".");
+            if (website.Addresses.Any(a => !IpAddressRules.IsNormalized(a.IpAddress)))
+                throw new InvalidDataException($"Configuration contains an invalid IP address for {website.Hostname}.");
+            if (website.Addresses.Select(a => a.IpAddress).Distinct().Count() != website.Addresses.Count)
+                throw new InvalidDataException($"Configuration lists the same IP address twice for {website.Hostname}.");
+        }
+        if (config.Websites.Select(w => w.Hostname).Distinct().Count() != config.Websites.Count)
+            throw new InvalidDataException("Configuration lists the same website twice.");
+
         foreach (var selection in config.Profiles.SelectMany(p => p.Selections))
         {
             var website = config.Websites.FirstOrDefault(w => w.Id == selection.WebsiteId)
                 ?? throw new InvalidDataException("A profile refers to a website that does not exist.");
-            foreach (Guid? selected in new[] { selection.SelectedIpv4Id, selection.SelectedIpv6Id })
-            {
-                if (selected is Guid id && !website.Addresses.Any(a => a.Id == id))
-                    throw new InvalidDataException("A profile selects an address that does not exist.");
-            }
+            CheckSelectedAddress(website, selection.SelectedIpv4Id, IpFamily.IPv4);
+            CheckSelectedAddress(website, selection.SelectedIpv6Id, IpFamily.IPv6);
         }
 
         if (!config.Profiles.Any(x => x.Id == config.ActiveProfileId))
             throw new InvalidDataException("Active profile does not exist.");
+    }
+
+    private static void CheckSelectedAddress(WebsiteEntry website, Guid? addressId, IpFamily family)
+    {
+        if (addressId is not Guid id) return;
+        AddressCandidate address = website.Addresses.FirstOrDefault(a => a.Id == id)
+            ?? throw new InvalidDataException("A profile selects an address that does not exist.");
+        if (IpAddressRules.FamilyOf(address.IpAddress) != family)
+            throw new InvalidDataException($"A profile selects {address.IpAddress} as an {family} address.");
     }
 
     private static bool HasDuplicates(IEnumerable<Guid> ids)
