@@ -1,0 +1,59 @@
+name: Kiitou Windows build and executable release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore Kiitou/Kiitou.csproj
+
+      - name: Build
+        run: dotnet build Kiitou/Kiitou.csproj -c Release --no-restore
+
+      - name: Publish self-contained executable
+        run: >
+          dotnet publish Kiitou/Kiitou.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:DebugType=None -p:DebugSymbols=false
+          -o out
+
+      - name: Verify single executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "out/Kiitou.exe"
+          if (-not (Test-Path $exe)) { throw "Kiitou.exe was not published" }
+          $other = Get-ChildItem out -File | Where-Object { $_.Name -ne "Kiitou.exe" }
+          if ($other) { throw ("Unexpected sidecar files: " + ($other.Name -join ", ")) }
+          Write-Host "Verified publish output: Kiitou.exe"
+          Get-Item $exe | Select-Object Name, Length
+
+      - name: Publish direct EXE release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = (Get-Content release-tag.txt -Raw).Trim()
+          if ($tag -notmatch '^pass-[1-9][0-9]*$') { throw "Invalid release tag" }
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag out/Kiitou.exe --clobber
+          } else {
+            gh release create $tag out/Kiitou.exe --target ${{ github.sha }} --title "Kiitou $tag (development build)" --notes "Development-phase executable. Windows compilation and single-file publishing have passed; interactive Windows startup and storage behavior still require verification." --prerelease
+          }
