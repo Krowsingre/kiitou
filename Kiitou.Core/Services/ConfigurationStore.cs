@@ -84,6 +84,12 @@ public sealed class ConfigurationStore
 
         foreach (WebsiteEntry website in config.Websites)
         {
+            foreach (AddressCandidate candidate in website.Addresses)
+            {
+                if (candidate.LastAssessment is not { } assessment) continue;
+                assessment.Reasons ??= [];
+                assessment.Warnings ??= [];
+            }
             if (!HostnameRules.IsNormalized(website.Hostname))
                 throw new InvalidDataException($"Configuration contains an invalid hostname: \"{website.Hostname}\".");
             if (website.Addresses.Any(a => !IpAddressRules.IsNormalized(a.IpAddress)))
