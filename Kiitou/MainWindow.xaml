@@ -158,7 +158,7 @@
                             <DataGridTemplateColumn Width="40">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="&#xE712;" FontFamily="{StaticResource IconFont}" Padding="6,3" Margin="0"
+                                        <Button Content="&#xE712;" FontFamily="{StaticResource IconFont}" Padding="2,3" Margin="-6,0"
                                                 MinHeight="22" BorderThickness="0" Background="Transparent"
                                                 Click="HomeMore_Click" ToolTip="Open this website's addresses"/>
                                     </DataTemplate>
