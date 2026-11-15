@@ -28,13 +28,12 @@ public sealed class HostsBackupStore
         string original = System.IO.Path.Combine(Directory, OriginalFileName);
         if (!File.Exists(original)) WriteNew(original, snapshot.Bytes);
 
-        string path = System.IO.Path.Combine(
-            Directory, Prefix + utcNow.ToString(StampFormat, CultureInfo.InvariantCulture) + Extension);
-        for (int attempt = 1; File.Exists(path); attempt++)
+        // File names sort in creation order, so a name already in use moves to the next millisecond.
+        string path = PathFor(utcNow);
+        while (File.Exists(path))
         {
-            path = System.IO.Path.Combine(
-                Directory,
-                Prefix + utcNow.ToString(StampFormat, CultureInfo.InvariantCulture) + "-" + attempt + Extension);
+            utcNow = utcNow.AddMilliseconds(1);
+            path = PathFor(utcNow);
         }
         WriteNew(path, snapshot.Bytes);
         Prune();
@@ -57,6 +56,9 @@ public sealed class HostsBackupStore
             .ThenByDescending(b => System.IO.Path.GetFileName(b.Path), StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private string PathFor(DateTime utcNow) => System.IO.Path.Combine(
+        Directory, Prefix + utcNow.ToString(StampFormat, CultureInfo.InvariantCulture) + Extension);
 
     public byte[] ReadBytes(string backupPath)
     {

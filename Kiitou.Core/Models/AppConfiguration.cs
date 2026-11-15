@@ -10,6 +10,7 @@ public sealed class AppConfiguration
     public List<MappingProfile> Profiles { get; set; } = [];
     public Guid ActiveProfileId { get; set; }
     public HostsState Hosts { get; set; } = new();
+    public AppSettings Settings { get; set; } = new();
 
     public static AppConfiguration CreateDefault()
     {
@@ -29,6 +30,12 @@ public sealed class HostsState
     public string? LastWrittenSha256 { get; set; }
     public DateTime? LastAppliedUtc { get; set; }
     public Guid? LastAppliedProfileId { get; set; }
+}
+
+public sealed class AppSettings
+{
+    /// <summary>Show a notification-area icon and hide the window there when minimized.</summary>
+    public bool MinimizeToTray { get; set; }
 }
 
 public sealed class ThemeSelection
