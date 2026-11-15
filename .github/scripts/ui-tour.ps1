@@ -15,6 +15,67 @@ public static class KiitouTourNative {
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, bool repaint);
+
+    private delegate bool EnumProc(IntPtr window, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr parameter);
+    [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+    [DllImport("user32.dll")] private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr window, System.Text.StringBuilder text, int capacity);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, System.Text.StringBuilder text, int capacity);
+    [DllImport("user32.dll")] private static extern int GetDlgCtrlID(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    private static string ClassOf(IntPtr window) {
+        System.Text.StringBuilder text = new System.Text.StringBuilder(256);
+        GetClassName(window, text, text.Capacity);
+        return text.ToString();
+    }
+
+    private static string TextOf(IntPtr window) {
+        System.Text.StringBuilder text = new System.Text.StringBuilder(4096);
+        GetWindowText(window, text, text.Capacity);
+        return text.ToString();
+    }
+
+    // The visible message box (window class #32770) belonging to a process, or zero.
+    public static IntPtr FindDialog(int processId) {
+        IntPtr found = IntPtr.Zero;
+        EnumWindows(delegate(IntPtr window, IntPtr parameter) {
+            uint owner;
+            GetWindowThreadProcessId(window, out owner);
+            if (owner == (uint)processId && IsWindowVisible(window) && ClassOf(window) == "#32770") {
+                found = window;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        return found;
+    }
+
+    public static string DialogText(IntPtr dialog) {
+        System.Text.StringBuilder all = new System.Text.StringBuilder();
+        EnumChildWindows(dialog, delegate(IntPtr child, IntPtr parameter) {
+            if (ClassOf(child) == "Static") { all.Append(TextOf(child)).Append(' '); }
+            return true;
+        }, IntPtr.Zero);
+        return all.ToString();
+    }
+
+    // Presses the dialog button with the given caption (ignoring the accelerator mark).
+    public static bool PressButton(IntPtr dialog, string caption) {
+        IntPtr button = IntPtr.Zero;
+        EnumChildWindows(dialog, delegate(IntPtr child, IntPtr parameter) {
+            if (ClassOf(child) == "Button" && TextOf(child).Replace("&", "") == caption) {
+                button = child;
+                return false;
+            }
+            return true;
+        }, IntPtr.Zero);
+        if (button == IntPtr.Zero) { return false; }
+        const uint WM_COMMAND = 0x0111;
+        return PostMessage(dialog, WM_COMMAND, (IntPtr)GetDlgCtrlID(button), button);
+    }
 }
 "@
 
@@ -192,32 +253,24 @@ function Invoke-Button($process, [string]$automationId) {
 # Waits for a message box of the application, presses the named button and returns the box's text.
 function Click-Dialog($process, [string]$button, [int]$seconds = 60) {
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $processCondition = New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id)
     while ($sw.Elapsed.TotalSeconds -lt $seconds) {
         $process.Refresh()
         if ($process.HasExited) { throw "Kiitou exited while waiting for a '$button' dialog" }
-        $candidates = @()
-        $candidates += [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
-            [System.Windows.Automation.TreeScope]::Children, $processCondition)
-        $main = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-        $candidates += $main.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
-        foreach ($window in $candidates) {
-            if ($window.Current.ClassName -ne "#32770") { continue }
-            $parts = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-            $target = $null; $text = @()
-            foreach ($part in $parts) {
-                if ($part.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $part.Current.Name -eq $button) { $target = $part }
-                if ($part.Current.ControlType -eq [System.Windows.Automation.ControlType]::Text) { $text += $part.Current.Name }
-            }
-            if ($null -ne $target) {
-                $message = $text -join " "
-                $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-                Start-Sleep -Milliseconds 400
+        $dialog = [KiitouTourNative]::FindDialog($process.Id)
+        if ($dialog -ne [IntPtr]::Zero) {
+            $message = [KiitouTourNative]::DialogText($dialog)
+            if ([KiitouTourNative]::PressButton($dialog, $button)) {
+                # Wait for this box to close before looking for the next one.
+                $closing = [System.Diagnostics.Stopwatch]::StartNew()
+                while ($closing.Elapsed.TotalSeconds -lt 10 -and [KiitouTourNative]::FindDialog($process.Id) -eq $dialog) {
+                    Start-Sleep -Milliseconds 100
+                }
                 return $message
             }
+            Save-Shot $process "failure"
+            throw "The dialog has no '$button' button. Its text: $message"
         }
-        Start-Sleep -Milliseconds 300
+        Start-Sleep -Milliseconds 250
     }
     Save-Shot $process "failure"
     throw "A dialog with a '$button' button did not appear"
