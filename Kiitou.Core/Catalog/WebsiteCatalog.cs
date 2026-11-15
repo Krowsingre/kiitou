@@ -74,6 +74,7 @@ public sealed class WebsiteCatalog
         if (website.Addresses.Any(a => a.Id != addressId && a.IpAddress == normalized))
             throw new CatalogException($"{normalized} is already a candidate for {website.Hostname}.");
 
+        if (address.IpAddress != normalized) address.LastAssessment = null;
         address.IpAddress = normalized;
 
         // A selection may only point at an address of its own family.

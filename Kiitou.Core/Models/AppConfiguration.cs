@@ -48,6 +48,33 @@ public sealed class AddressCandidate
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string IpAddress { get; set; } = "";
+    /// <summary>Result of the most recent verification of this address, if any.</summary>
+    public AddressAssessment? LastAssessment { get; set; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<VerificationStatus>))]
+public enum VerificationStatus
+{
+    NotTested,
+    ConnectionVerified,
+    ConnectionWorksVerificationIncomplete,
+    FailedOrUnsafe
+}
+
+/// <summary>A stored verification outcome with the reasons behind it and when it was made.</summary>
+public sealed class AddressAssessment
+{
+    public VerificationStatus Status { get; set; }
+    public List<string> Reasons { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
+    public DateTime AssessedUtc { get; set; }
+    public int? HttpStatus { get; set; }
+    public string? RedirectLocation { get; set; }
+    public string? CertificateSubject { get; set; }
+    public string? CertificateIssuer { get; set; }
+    public DateTime? CertificateNotAfterUtc { get; set; }
+    public double? ConnectMilliseconds { get; set; }
+    public double? TotalMilliseconds { get; set; }
 }
 
 public sealed class MappingProfile
