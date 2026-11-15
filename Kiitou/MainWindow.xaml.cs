@@ -35,6 +35,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         _tray = new TrayIcon(this);
         BuildColorChoices();
+        FilterBox.ItemsSource = HomeFilters;
+        FilterBox.SelectedIndex = 0;
         VerifyCaveat.Text = LegitimacyAssessor.Caveat;
         ApplyTheme();
         _ready = true;
@@ -197,8 +199,51 @@ public partial class MainWindow : Window
                 : "The hosts file does not match this profile's saved mappings. Use Apply Selected Profile.";
     }
 
+    private static readonly string[] HomeFilters =
+    [
+        "All websites", "Enabled", "Disabled", "Connection Verified",
+        "Connection Works, Verification Incomplete", "Failed or Unsafe", "Not Tested"
+    ];
+
+    private void HomeFilter_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _refreshing) return;
+        _refreshing = true;
+        try
+        {
+            RefreshHome();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+    }
+
+    /// <summary>Whether a website passes Home's search text and filter choice.</summary>
+    private bool PassesHomeFilter(WebsiteEntry website, ProfileWebsiteSelection selection, AddressCandidate? shown)
+    {
+        string search = SearchBox.Text.Trim();
+        if (search.Length > 0 &&
+            !website.Hostname.Contains(search, StringComparison.OrdinalIgnoreCase) &&
+            !website.Addresses.Any(a => a.IpAddress.Contains(search, StringComparison.OrdinalIgnoreCase)))
+            return false;
+
+        VerificationStatus status = shown?.LastAssessment?.Status ?? VerificationStatus.NotTested;
+        return FilterBox.SelectedIndex switch
+        {
+            1 => selection.Enabled,
+            2 => !selection.Enabled,
+            3 => status == VerificationStatus.ConnectionVerified,
+            4 => status == VerificationStatus.ConnectionWorksVerificationIncomplete,
+            5 => status == VerificationStatus.FailedOrUnsafe,
+            6 => status == VerificationStatus.NotTested,
+            _ => true
+        };
+    }
+
     private void RefreshHome()
     {
+        SearchHint.Visibility = SearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         Guid? selectedId = (HomeGrid.SelectedItem as WebsiteRow)?.Id;
         var rows = new List<WebsiteRow>();
         foreach (WebsiteEntry website in _s.Catalog.Websites)
@@ -214,6 +259,7 @@ public partial class MainWindow : Window
             AddressCandidate? v4 = website.Addresses.FirstOrDefault(a => a.Id == selection.SelectedIpv4Id);
             AddressCandidate? v6 = website.Addresses.FirstOrDefault(a => a.Id == selection.SelectedIpv6Id);
             AddressCandidate? shown = v4 ?? v6;
+            if (!PassesHomeFilter(website, selection, shown)) continue;
             string summary = !selection.Enabled
                 ? "Disabled"
                 : shown is null

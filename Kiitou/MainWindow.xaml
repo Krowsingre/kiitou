@@ -1,7 +1,7 @@
 <Window x:Class="Kiitou.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Kiitou – Host Mapping Manager" Width="900" Height="600" MinWidth="720" MinHeight="450"
+        Title="Kiitou – Host Mapping Manager" Width="960" Height="620" MinWidth="720" MinHeight="450"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}"
         FontFamily="Segoe UI" FontSize="12.5" UseLayoutRounding="True">
@@ -53,7 +53,7 @@
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="158"/>
+                <ColumnDefinition Width="150"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -90,22 +90,35 @@
                 <Grid x:Name="ViewHome">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
+                    <Grid Grid.Row="1" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="210"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" TextChanged="HomeFilter_Changed" ToolTip="Show only websites whose hostname or addresses contain this text"/>
+                        <TextBlock x:Name="SearchHint" Text="Search websites and addresses" Foreground="{DynamicResource Muted}"
+                                   IsHitTestVisible="False" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                        <TextBlock Grid.Column="1" Text="Show:" VerticalAlignment="Center" Margin="12,0,8,0"/>
+                        <ComboBox x:Name="FilterBox" Grid.Column="2" SelectionChanged="HomeFilter_Changed"/>
+                    </Grid>
                     <WrapPanel>
                         <Button Click="AddWebsite_Click"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE710;"/><TextBlock Text="Add Website"/></StackPanel></Button>
                         <Button Click="HomeEdit_Click"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE70F;"/><TextBlock Text="Edit"/></StackPanel></Button>
-                        <Button Click="HomeRemove_Click" Margin="0,0,16,6"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;"/><TextBlock Text="Remove"/></StackPanel></Button>
+                        <Button Click="HomeRemove_Click" Margin="0,0,12,6"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE74D;"/><TextBlock Text="Remove"/></StackPanel></Button>
                         <Button Click="EnableAll_Click"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE930;" Foreground="{DynamicResource Success}"/><TextBlock Text="Enable All"/></StackPanel></Button>
-                        <Button Click="DisableAll_Click" Margin="0,0,16,6"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE711;"/><TextBlock Text="Disable All"/></StackPanel></Button>
+                        <Button Click="DisableAll_Click" Margin="0,0,12,6"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE711;"/><TextBlock Text="Disable All"/></StackPanel></Button>
                         <Button Click="HomeDiscover_Click"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE72C;"/><TextBlock Text="Discover DNS"/></StackPanel></Button>
                         <Button Click="HomeTest_Click"><StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE768;"/><TextBlock Text="Test Addresses"/></StackPanel></Button>
                     </WrapPanel>
 
-                    <DataGrid x:Name="HomeGrid" Grid.Row="1" Margin="0,2,0,8">
+                    <DataGrid x:Name="HomeGrid" Grid.Row="2" Margin="0,0,0,8">
                         <DataGrid.Columns>
-                            <DataGridTemplateColumn Header="Enabled" Width="68">
+                            <DataGridTemplateColumn Header="Enabled" Width="64">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding Enabled, Mode=OneWay}" HorizontalAlignment="Center"
@@ -113,7 +126,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Website (Hostname)" Width="1.1*" MinWidth="120">
+                            <DataGridTemplateColumn Header="Website (Hostname)" Width="*" MinWidth="105">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel>
@@ -123,7 +136,7 @@
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Header="Selected IP Address" Width="1.4*" MinWidth="150">
+                            <DataGridTemplateColumn Header="Selected IP Address" Width="1.3*" MinWidth="135">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ComboBox ItemsSource="{Binding Options}" SelectedItem="{Binding Selected, Mode=OneWay}"
@@ -132,17 +145,17 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Addresses" Binding="{Binding AddressCount}" Width="76"/>
-                            <DataGridTemplateColumn Header="Status" Width="1.2*" MinWidth="130">
+                            <DataGridTemplateColumn Header="Status" Width="1.5*" MinWidth="105">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Style="{StaticResource Glyph}" Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}"/>
-                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
-                            <DataGridTemplateColumn Width="44">
+                            <DataGridTemplateColumn Width="40">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Content="&#xE712;" FontFamily="{StaticResource IconFont}" Padding="6,3" Margin="0"
@@ -154,7 +167,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <Border Grid.Row="2" Style="{StaticResource Card}">
+                    <Border Grid.Row="3" Style="{StaticResource Card}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -238,7 +251,7 @@
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Style="{StaticResource Glyph}" Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}"/>
-                                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -344,7 +357,7 @@
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Style="{StaticResource Glyph}" Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}"/>
-                                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
                                             </StackPanel>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -384,12 +397,12 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Website" Binding="{Binding Hostname}" Width="1.2*"/>
                             <DataGridTextColumn Header="Address" Binding="{Binding IpAddress}" Width="1.3*"/>
-                            <DataGridTemplateColumn Header="Status" Width="1.6*">
+                            <DataGridTemplateColumn Header="Status" Width="2.2*">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Style="{StaticResource Glyph}" Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}"/>
-                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
