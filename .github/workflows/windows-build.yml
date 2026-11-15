@@ -61,6 +61,10 @@ jobs:
         shell: pwsh
         run: ./.github/scripts/smoke.ps1 -Exe out/Kiitou.exe -ShotDir shots
 
+      - name: Tour every view and theme
+        shell: powershell
+        run: ./.github/scripts/ui-tour.ps1 -Exe out/Kiitou.exe -ShotDir shots
+
       - name: Upload smoke test screenshots
         if: always()
         uses: actions/upload-artifact@v4

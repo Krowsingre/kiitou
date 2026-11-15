@@ -1,6 +1,10 @@
+using System.IO;
 using System.Windows;
 using Kiitou.Hosts;
+using Kiitou.Network;
 using Kiitou.Services;
+using Kiitou.Session;
+using Kiitou.Theming;
 
 namespace Kiitou;
 
@@ -35,9 +39,19 @@ public partial class App : Application
 
         try
         {
-            var store = new ConfigurationStore(StoragePaths.Resolve());
+            StoragePaths paths = StoragePaths.Resolve();
+            var store = new ConfigurationStore(paths);
             var config = store.Load();
-            var window = new MainWindow(store, config);
+
+            var hostsFile = new HostsFileService(HostsFileService.SystemHostsPath);
+            var hosts = new HostsApplyService(
+                hostsFile,
+                new HostsBackupStore(Path.Combine(paths.DataDirectory, "backups")),
+                HostsApplyService.CreateSystemWriter(hostsFile, paths.DataDirectory));
+            var session = new KiitouSession(store, config, hosts, new DirectDnsResolver(), new HttpsAddressTester());
+
+            ThemeManager.Apply(config.Theme.Color, config.Theme.Mode);
+            var window = new MainWindow(session, paths);
             MainWindow = window;
             window.Show();
         }

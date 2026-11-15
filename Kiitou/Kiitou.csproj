@@ -3,12 +3,22 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Kiitou</AssemblyName>
     <RootNamespace>Kiitou</RootNamespace>
+    <ApplicationIcon>..\assets\icons\kiitou_purple.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.7.0</Version>
+    <Product>Kiitou</Product>
+    <Description>Kiitou - Host Mapping Manager</Description>
   </PropertyGroup>
   <ItemGroup>
+    <!-- Windows Forms is referenced only for the notification-area icon. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+    <Resource Include="..\assets\icons\*.ico" Link="Icons\%(Filename)%(Extension)" />
     <ProjectReference Include="..\Kiitou.Core\Kiitou.Core.csproj" />
   </ItemGroup>
 </Project>

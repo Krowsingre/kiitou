@@ -40,6 +40,11 @@ function Stop-App([System.Diagnostics.Process]$Process) {
     }
 }
 
+trap {
+    Save-Screenshot "failure"
+    break
+}
+
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("kiitou-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force $work | Out-Null
 $exeCopy = Join-Path $work "Kiitou.exe"
