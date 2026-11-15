@@ -14,6 +14,8 @@ namespace Kiitou;
 // Hosts File and Settings views.
 public partial class MainWindow
 {
+    private string? _newestBackupPath;
+
     private void RefreshHosts(HostsStatus status)
     {
         var lines = new List<string>();
@@ -63,7 +65,13 @@ public partial class MainWindow
             // Shown as "no backups"; reading them is retried on the next refresh.
         }
         BackupList.ItemsSource = backups;
-        BackupList.SelectedItem = backups.FirstOrDefault(b => b.Path == keep) ?? backups.FirstOrDefault();
+        // The permanent original is listed first; the most recent backup is the usual one to restore.
+        NamedItem? newest = backups.Count > 1 ? backups[1] : backups.FirstOrDefault();
+        bool newBackupAppeared = newest?.Path != _newestBackupPath;
+        _newestBackupPath = newest?.Path;
+        BackupList.SelectedItem = newBackupAppeared
+            ? newest
+            : backups.FirstOrDefault(b => b.Path == keep) ?? newest;
     }
 
     private void HostsRefresh_Click(object sender, RoutedEventArgs e) => RefreshAll();

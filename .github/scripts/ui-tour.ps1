@@ -183,5 +183,129 @@ $p = Start-Kiitou
 Assert-Alive $p "starting with the notification-area icon enabled"
 Stop-Kiitou $p
 
+function Invoke-Button($process, [string]$automationId) {
+    $element = Find-ById $process $automationId
+    if ($null -eq $element) { Save-Shot $process "failure"; throw "Button $automationId was not found" }
+    $element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+}
+
+# Waits for a message box of the application, presses the named button and returns the box's text.
+function Click-Dialog($process, [string]$button, [int]$seconds = 60) {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $processCondition = New-Object System.Windows.Automation.PropertyCondition(
+        [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id)
+    while ($sw.Elapsed.TotalSeconds -lt $seconds) {
+        $process.Refresh()
+        if ($process.HasExited) { throw "Kiitou exited while waiting for a '$button' dialog" }
+        $candidates = @()
+        $candidates += [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Children, $processCondition)
+        $main = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+        $candidates += $main.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+        foreach ($window in $candidates) {
+            if ($window.Current.ClassName -ne "#32770") { continue }
+            $parts = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+            $target = $null; $text = @()
+            foreach ($part in $parts) {
+                if ($part.Current.ControlType -eq [System.Windows.Automation.ControlType]::Button -and $part.Current.Name -eq $button) { $target = $part }
+                if ($part.Current.ControlType -eq [System.Windows.Automation.ControlType]::Text) { $text += $part.Current.Name }
+            }
+            if ($null -ne $target) {
+                $message = $text -join " "
+                $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                Start-Sleep -Milliseconds 400
+                return $message
+            }
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    Save-Shot $process "failure"
+    throw "A dialog with a '$button' button did not appear"
+}
+
+function Get-State($process) { return (Find-ById $process "StateText").Current.Name }
+
+function Select-Nav($process, [string]$automationId) {
+    (Find-ById $process $automationId).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 600
+}
+
+Write-Host "== End to end through the user interface (build runner only)"
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$elevated = ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
+    $hostsPath = Join-Path $env:SystemRoot "System32\drivers\etc\hosts"
+    function Get-HostsText { [System.Text.Encoding]::GetEncoding(28591).GetString([System.IO.File]::ReadAllBytes($hostsPath)) }
+    function Get-ManagedCount { @(Select-String -Path $hostsPath -Pattern "# Kiitou$").Count }
+    $hostsBefore = Get-HostsText
+    if ((Get-ManagedCount) -ne 0) { throw "The runner's hosts file already contains Kiitou entries" }
+
+    Write-Config "purple" "dark" $false
+    $p = Start-Kiitou
+    if ((Get-State $p) -ne "Not Applied") { throw "Expected 'Not Applied' before applying, saw '$(Get-State $p)'" }
+
+    Invoke-Button $p "ApplyButton"
+    $question = Click-Dialog $p "Yes"
+    if ($question -notlike "*4 mappings*Gaming*") { throw "Unexpected apply confirmation: $question" }
+    $answer = Click-Dialog $p "OK"
+    if ($answer -notlike "*profile was applied*") { throw "Unexpected apply result: $answer" }
+    Start-Sleep -Milliseconds 800
+    if ((Get-ManagedCount) -ne 4) { throw "Expected 4 managed hosts entries after applying, found $(Get-ManagedCount)" }
+    if ((Get-State $p) -ne "Profile Active") { throw "Expected 'Profile Active' after applying, saw '$(Get-State $p)'" }
+    $resolved = [System.Net.Dns]::GetHostAddresses("media.example.com") | ForEach-Object { $_.ToString() }
+    if ($resolved -notcontains "151.101.65.69") { throw "Windows did not resolve the applied mapping (got: $resolved)" }
+    if (-not (Get-HostsText).StartsWith($hostsBefore.TrimEnd("`r", "`n"))) { throw "Unrelated hosts content changed while applying" }
+    Save-Shot $p "e2e-1-applied"
+    Write-Host "  applied through the UI: 4 mappings written, resolved by Windows, state 'Profile Active'"
+
+    # Applying again must report that nothing needs to change.
+    Invoke-Button $p "ApplyButton"
+    $again = Click-Dialog $p "OK"
+    if ($again -notlike "*already contains*") { throw "Unexpected second apply result: $again" }
+
+    Write-Host "  unexpected termination"
+    $p.Kill(); [void]$p.WaitForExit(5000)
+    $p = Start-Kiitou
+    if ((Get-State $p) -ne "Profile Active") { throw "State was not kept after an unexpected termination: '$(Get-State $p)'" }
+    $leftovers = @(Get-ChildItem $work -Force -Filter ".kiitou-*")
+    if ($leftovers.Count -ne 0) { throw "Temporary files were left behind: $($leftovers.Name -join ', ')" }
+
+    Select-Nav $p "NavHosts"
+    Invoke-Button $p "HostsRemoveButton"
+    [void](Click-Dialog $p "Yes")
+    $removed = Click-Dialog $p "OK"
+    if ($removed -notlike "*were removed*") { throw "Unexpected removal result: $removed" }
+    Start-Sleep -Milliseconds 800
+    if ((Get-ManagedCount) -ne 0) { throw "Managed entries remained after removal" }
+    if ((Get-State $p) -ne "Not Applied") { throw "Expected 'Not Applied' after removal, saw '$(Get-State $p)'" }
+    Write-Host "  removed through the UI"
+
+    Invoke-Button $p "HostsRestoreButton"
+    [void](Click-Dialog $p "Yes")
+    $restored = Click-Dialog $p "OK"
+    if ($restored -notlike "*was restored*") { throw "Unexpected restore result: $restored" }
+    Start-Sleep -Milliseconds 800
+    if ((Get-ManagedCount) -ne 4) { throw "Restoring the latest backup did not bring back the 4 entries" }
+    if ((Get-State $p) -ne "Profile Active") { throw "Expected 'Profile Active' after restore, saw '$(Get-State $p)'" }
+    Save-Shot $p "e2e-2-restored"
+    Write-Host "  latest backup restored through the UI"
+
+    Invoke-Button $p "HostsRemoveButton"
+    [void](Click-Dialog $p "Yes")
+    [void](Click-Dialog $p "OK")
+    Start-Sleep -Milliseconds 800
+    Stop-Kiitou $p
+
+    $hostsAfter = Get-HostsText
+    if (-not (($hostsAfter -ceq $hostsBefore) -or ($hostsAfter -ceq ($hostsBefore + "`r`n")) -or ($hostsAfter -ceq ($hostsBefore + "`n")))) {
+        throw "The hosts file was not returned to its original content"
+    }
+    $backups = @(Get-ChildItem (Join-Path $work "backups") -Filter "hosts-*.bak")
+    if ($backups.Count -lt 4 -or -not ($backups.Name -contains "hosts-original.bak")) { throw "Expected the original and at least three backups, found: $($backups.Name -join ', ')" }
+    Write-Host "  hosts file returned to its original content; $($backups.Count) backups kept"
+} else {
+    Write-Host "  skipped (not an elevated build runner)"
+}
+
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host "UI tour passed."
