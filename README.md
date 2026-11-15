@@ -1,47 +1,81 @@
 # Kiitou
 
-Portable Windows hosts and address manager.
+Kiitou is a portable Windows hosts-file manager. You keep a list of websites, several candidate
+IP addresses for each, and named profiles that say which websites are switched on and which
+address each one uses. Applying a profile writes those mappings to the Windows hosts file.
 
-## Development status
+It is a single `Kiitou.exe`. There is no installer, account, server or background service.
 
-**Pass 1: Foundation only.** Hosts-file modification, connectivity testing,
-profile editing, the approved final UI, and release packaging are not implemented.
+## Download
 
-## Technology
+Development builds are published on the
+[Releases page](https://github.com/Krowsingre/kiitou/releases) as a single `Kiitou.exe`.
+The executable is not code-signed, so Windows SmartScreen may warn about an unknown publisher.
 
-- C# and .NET 10
-- Windows Presentation Foundation (WPF)
-- Local JSON configuration
-- Portable-first writable storage, with local AppData fallback
+## What it does
 
-## Build (Windows)
+- **Websites and addresses.** Add websites and any number of IPv4 and IPv6 candidates for each.
+  Enable one, some, all or none. Disabling a website keeps its addresses and choices.
+- **Profiles.** Create, rename, duplicate, delete, switch, import and export. Edits are held as
+  unsaved changes until you save them to the current profile or to a new one.
+- **DNS discovery.** Look up the addresses currently published for a website and add the ones
+  you choose. Saved addresses are never removed for you.
+- **Testing.** Test one address, all of them, or find the first that works. Tests connect
+  straight to the candidate address on port 443 while using the real hostname for TLS and HTTP,
+  without touching the hosts file.
+- **Verification.** Each address gets one of four statuses, with the reasons behind it:
+  Connection Verified; Connection Works, Verification Incomplete; Failed or Unsafe; Not Tested.
+- **Hosts file.** Kiitou only ever changes its own clearly marked section. Everything else in
+  the file is preserved byte for byte. It backs up the file before every change, keeps the
+  original permanently, notices changes made by other programs, and can restore any backup.
+- **Appearance.** Seven color families, each in dark and light, with a matching icon.
 
-Install the .NET 10 SDK, then run:
+Kiitou runs without administrator rights. Windows asks for permission only at the moment the
+hosts file is written. If you decline, nothing is changed.
+
+## Important limits
+
+A green "Connection Verified" means the connection behaves correctly: the address answers, and
+it presents a certificate that is trusted and valid for the hostname. **It does not prove that
+an address is authentic or that a website is safe.**
+
+No reputation service is configured, so every result notes that reputation was not checked.
+
+Security software sometimes blocks or reverts changes to the hosts file. Kiitou reports when
+what it wrote is not what the file contains afterwards.
+
+Kiitou is provided as is, without warranty of any kind. You use it at your own risk.
+
+## Where settings are stored
+
+`config.json` and a `backups` folder are created beside `Kiitou.exe` when that folder can be
+written to. Otherwise they go to `%LOCALAPPDATA%\Kiitou`. The Settings page shows which.
+
+## Build
+
+Install the .NET 10 SDK on Windows, then:
 
 ```powershell
-dotnet build .\Kiitou\Kiitou.csproj -c Release
+dotnet test .\Kiitou.Tests\Kiitou.Tests.csproj -c Release
 dotnet run --project .\Kiitou\Kiitou.csproj
 ```
 
-The bootstrap window is intentionally minimal. It is not the approved final UI.
+Every push is built and tested on GitHub Actions. Builds of `main` are published as releases.
 
-## Storage
+| Folder | Contents |
+| --- | --- |
+| `Kiitou` | The WPF application |
+| `Kiitou.Core` | Hosts engine, websites, profiles, DNS, testing, verification, session |
+| `Kiitou.Tests` | Automated tests |
+| `assets` | Approved icons and the approved UI screenshot |
+| `docs` | Specification, plan, per-pass audits and the verification matrix |
 
-Kiitou creates `config.json` beside the executable when the folder is writable.
-When that directory cannot be written, Kiitou uses
-`%LOCALAPPDATA%\Kiitou\config.json`.
+## Status
 
-The default configuration contains a disabled-by-default empty mapping collection,
-a Default profile, and the purple/dark theme. No hosts-file changes occur in Pass 1.
+Development passes 1 to 8 are complete on automated evidence. Pass 9 (release verification on a
+clean Windows machine, by a person) is outstanding. See `docs/VERIFICATION_MATRIX.md` for what
+has and has not been verified, and `docs/IMPLEMENTATION_STATUS.md` for open decisions.
 
-## Theme foundations
+## License
 
-Seven approved color families: purple, blue, green, gold, red, silver, teal.
-Each supports light and dark modes. The approved icons are in `assets/icons/`
-and their filenames are reserved in `ThemeCatalog`; actual icon embedding and
-runtime switching belong to Pass 7.
-
-## Scope
-
-No features outside the user-approved development checklist are authorized.
-See `docs/PASS_01_AUDIT.md` for validation limitations.
+No license has been chosen yet. Until one is added, the code is published for viewing only.

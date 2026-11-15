@@ -1,53 +1,78 @@
-# KIITOU: Actual Implementation State and Build Handoff
+# KIITOU: Actual Implementation State
 
-Observed on 2026-11-14. Intended for an LLM auditing the repository. Do not confuse specifications and mockups with working implementation.
+Observed on 2026-11-15. Do not confuse specifications and mockups with working implementation;
+`VERIFICATION_MATRIX.md` says what was actually verified and how.
 
 ## GitHub
-Public repository (made public 2026-11-14): https://github.com/Krowsingre/kiitou; main branch.
+Public repository: https://github.com/Krowsingre/kiitou; `main` branch. Each pass was developed
+on its own branch, built and tested by GitHub Actions, and merged through a pull request
+(#1 to #8). Each merge publishes a `pass-N` prerelease containing only `Kiitou.exe`.
 
-## Files committed
-- Kiitou/Kiitou.csproj: WinExe, .NET 10 Windows, WPF.
-- Kiitou/App.xaml and App.xaml.cs: startup, create or load local configuration, error dialog.
-- Kiitou/MainWindow.xaml and MainWindow.xaml.cs: minimal bootstrap screen; NOT approved final GUI. Width/height 720x450, minimum 720x450 after correction.
-- Kiitou/Models/AppConfiguration.cs: JSON model classes for theme selection, website, candidate IP, profile, per-profile enabled and selected IPv4/IPv6 IDs.
-- Kiitou/Services/StoragePaths.cs: writable app-folder probe and local AppData fallback.
-- Kiitou/Services/ConfigurationStore.cs: load/create/save versioned JSON; basic validation; temporary file replacement.
-- Kiitou/Services/ThemeCatalog.cs: seven theme family names, two modes, ICO naming convention.
-- README.md, .gitignore, docs/PASS_01_AUDIT.md, release-tag.txt (pass-1).
-- .github/workflows/windows-build.yml: Windows Actions runner, setup .NET 10, restore/build, publish single-file win-x64 self-contained executable, inspect publish folder, attempt GitHub prerelease attachment.
+## How passes 2 to 8 were authorized
+On 2026-11-14 the user authorized coding each phase, auditing it for scope and errors, fixing,
+re-auditing, then pushing and merging, without stopping for approval between passes. The
+per-pass audits are in `PASS_02_AUDIT.md` to `PASS_08_AUDIT.md`.
 
-## Not implemented
-The approved UI; fourteen rendered theme schemes; approved ICO binaries and runtime icon selection; site CRUD; actual profile manipulation; system hosts-file read/write/backups/UAC; DNS discovery; address testing; reputation/security checks. Data model definitions alone do not complete these features.
+## What exists
+- `Kiitou.Core`: configuration store; hostname and IP rules; hosts engine (managed section,
+  byte-exact file service, backups, privileged helper, elevation launcher, apply/restore);
+  website catalog and selection editor; profile manager and import/export; direct DNS resolver
+  and discovery; HTTPS address tester; legitimacy assessor; session layer.
+- `Kiitou`: WPF application with the approved layout, seven views, fourteen themes, matching
+  icons, optional notification-area icon, and the elevated helper mode.
+- `Kiitou.Tests`: 222 automated tests.
+- `.github`: build workflow; smoke test; UI tour that drives every view, all themes, and an
+  end-to-end apply, crash, remove and restore against the build runner's hosts file.
 
-## Known commit and build history
-- First Pass 1 WPF scaffolding pushed as separate file commits.
-- MinWidth/MinHeight set to 720x450 after initial size audit: a68d77098270f57d6085268eb8d102ac95215aab.
-- Build workflow added to main (initial single-exe publish/release logic).
-- A subsequent release-existence check change and dotnet diagnostic output committed at 3fb4d9ff8ba09a6cb3a993b2f449461a1b06a950.
-- Runs #1 to #10 all failed within seconds. Root cause, read from the run annotations: "The job was not started because recent account payments have failed or your spending limit needs to be increased." No runner started, so no step ever executed. The release-logic change in 3fb4d9f addressed code that had never run.
-- After the repository was made public, run #10 was re-run on commit fab1497 and succeeded in 1m 14s with no source changes. It published the `pass-1` prerelease with a lone `Kiitou.exe` (133 MB, SHA-256 fdb4ff36b717931dbf3b63b8de4db32a6ec59c8658c6f07a6c07a6acd1e2bb1f).
-- That executable was downloaded and tested on one Windows 11 PC; results are in PASS_01_AUDIT.md.
-- Corrective fixes from that audit (validation, drive-root path, workflow triggers and release provenance) were then made in source. **They have not been compiled or run yet.**
+## Build history
+- Runs #1 to #10 failed within seconds because GitHub refused to start jobs for account billing
+  reasons while the repository was private. No code had run. Making the repository public
+  resolved it with no source change.
+- Every pass since then built and passed its checks before being merged.
 
-## Required next work, no unauthorized feature expansion
-1. Build the corrective fixes on the Windows runner and repeat the PASS_01_AUDIT.md runtime tests against the new executable, adding a drive-root run.
-2. Run the executable on a clean Windows machine with no .NET installed.
-3. Ask the user to close Pass 1. Do not advance to Pass 2 before that.
-4. Upload the remaining reference art if wanted; see ASSET_TRANSFER.md.
+## Pass state
+| Pass | State |
+| --- | --- |
+| 1 Foundation and storage | Verified by automated tests, runner checks and a manual run on one PC |
+| 2 Hosts engine | Verified on the runner, including the real hosts file. Elevation prompt not verified |
+| 3 Sites and addresses | Verified by automated tests |
+| 4 Profiles | Verified by automated tests |
+| 5 DNS and connectivity | Verified by automated tests and a live network check |
+| 6 Legitimacy and security | Verified by automated tests. Reputation service not chosen |
+| 7 Windows UI | Verified by UI automation and screenshot review on the runner |
+| 8 Integration and hardening | Verified end to end on the runner |
+| 9 Release verification | **Not done. Needs a person on a clean Windows machine** |
 
-## Open decisions for the user (not changed, would alter approved behavior)
-- Portable mode is chosen whenever the executable folder is writable, so running from Downloads or Desktop writes `config.json` there, and moving the executable starts a fresh configuration.
-- Saving replaces `config.json` without keeping a backup copy.
-- There is no single-instance guard.
-- No license file; the repository is now public.
+No pass gate has been formally closed by the user.
 
-## Audit caution
-A timed hourly ChatGPT automation named Kiitou Build Watch was created to report workflow results. It is a status monitor, not evidence of success.
+## Required next work (Pass 9, by a person)
+1. Run the latest release executable on a clean Windows machine as a normal, non-elevated user.
+2. Apply a profile and accept the Windows elevation prompt; apply again and decline it; confirm
+   declining changes nothing.
+3. Add a website, addresses and a profile by hand; discover DNS; test addresses.
+4. Check the look against the approved screenshot, including at 125% and 150% display scaling.
+5. Try minimizing to the notification area with the option switched on.
+6. Tick the task list and close the gates, or report what needs changing.
 
-## Risks to examine during Pass 1 gate
-- Partial/malformed JSON and null collection elements, incompatible schemas.
-- Portable path behavior in protected folders.
-- Replacement file robustness across real Windows filesystems.
-- Windows/.NET build compatibility and the CI release permissions.
-- Approved icon assets are in `assets/icons/` but not yet embedded in the compiled executable (Pass 7).
-These are checks, not permission to add features.
+## Open decisions for the user
+- **License.** None chosen. For "may be shared, may not be sold", the MIT License with the
+  Commons Clause, or the PolyForm Noncommercial License, fit; plain MIT permits selling.
+- **Reputation service.** The specification requires a "supported reputation service" but names
+  none. Any real one needs an account or API key and sends hostnames and addresses to a third
+  party. None is configured.
+- **Whisper Light upper size.** Unknown; no maximum window size is enforced.
+- **Private addresses.** Classed as Failed or Unsafe because public routability is a required
+  check. They can still be selected and applied.
+- **Portable storage.** Settings are written beside the executable whenever that folder is
+  writable, so running from Downloads or the Desktop stores them there, and moving the
+  executable starts a fresh configuration.
+- **No backup of `config.json`** is kept when it is saved (hosts-file backups are kept).
+- **No single-instance guard.** Two copies running at once can overwrite each other's settings.
+- **Executable size.** About 174 MB uncompressed. Single-file compression would shrink the
+  download at some cost in start-up time.
+- **Code signing.** Unsigned; SmartScreen will warn.
+
+## Known limits
+- The TLS protocol version is not recorded by the address test.
+- Button icons use the Segoe MDL2 Assets font included with Windows 10 and 11.
+- Theme colors approximate the approved screenshot; they were not sampled from it.

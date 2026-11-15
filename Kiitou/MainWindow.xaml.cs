@@ -387,7 +387,9 @@ public partial class MainWindow : Window
                 notes.Add($"CONFLICT: line {conflict.Existing.LineNumber} already maps {conflict.Existing.Hostname} to {conflict.Existing.IpAddress}. Windows uses the first entry, so that line will take precedence over {conflict.Desired.IpAddress} until you remove it yourself.");
             foreach (SelectionIssue issue in new SelectionEditor(_s.Config, _s.Profiles.Active.Selections).FindIssues())
                 notes.Add("NOTE: " + issue.Message);
-            notes.Add("Windows will ask for administrator permission. Continue?");
+            notes.Add(Environment.IsPrivilegedProcess
+                ? "Continue?"
+                : "Windows will ask for administrator permission. Continue?");
             if (!Confirm(string.Join("\n\n", notes))) return;
 
             _busy = true;

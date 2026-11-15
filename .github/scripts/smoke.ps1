@@ -81,6 +81,27 @@ if ($p.MainWindowTitle -ne "Kiitou startup error") { throw "Expected the startup
 $p.Kill(); [void]$p.WaitForExit(5000)
 if ((Get-FileHash $config).Hash -ne $corruptHash) { throw "The corrupted configuration file was modified" }
 
+Write-Host "== Folder that cannot be written to"
+$protected = Join-Path $work "protected"
+New-Item -ItemType Directory -Force $protected | Out-Null
+Copy-Item $Exe (Join-Path $protected "Kiitou.exe")
+$fallback = Join-Path $env:LOCALAPPDATA "Kiitou"
+$fallbackExisted = Test-Path $fallback
+& icacls $protected /deny "$($env:USERNAME):(WD,AD)" | Out-Null
+try {
+    $p = Start-Process (Join-Path $protected "Kiitou.exe") -PassThru
+    Wait-Window $p 90
+    if ($p.HasExited -or $p.MainWindowTitle -like "*error*") { throw "Kiitou did not start from a folder it cannot write to" }
+    Stop-App $p
+    $written = @(Get-ChildItem $protected -Force | Where-Object { $_.Name -ne "Kiitou.exe" })
+    if ($written.Count -ne 0) { throw "Files were written into the protected folder: $($written.Name -join ', ')" }
+    if (-not (Test-Path (Join-Path $fallback "config.json"))) { throw "config.json was not created in local application data" }
+    Write-Host "  configuration was created in $fallback"
+} finally {
+    & icacls $protected /remove:d $env:USERNAME | Out-Null
+    if (-not $fallbackExisted) { Remove-Item $fallback -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 Write-Host "== Privileged hosts helper (build runner only)"
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $elevated = ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)

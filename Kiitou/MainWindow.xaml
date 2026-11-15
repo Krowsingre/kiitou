@@ -428,7 +428,7 @@
                     <WrapPanel Grid.Row="1">
                         <Button Content="Refresh" Click="HostsRefresh_Click"/>
                         <Button Content="Apply Selected Profile" Click="Apply_Click" Style="{StaticResource AccentBtn}"/>
-                        <Button Content="Remove Kiitou Mappings" Click="HostsRemove_Click"
+                        <Button x:Name="HostsRemoveButton" Content="Remove Kiitou Mappings" Click="HostsRemove_Click"
                                 ToolTip="Remove every mapping Kiitou manages from the hosts file. Your saved websites and profiles are kept."/>
                     </WrapPanel>
                     <TextBox x:Name="HostsText" Grid.Row="2" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
@@ -443,7 +443,7 @@
                         <TextBlock Text="Backups:" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,6"/>
                         <ComboBox x:Name="BackupList" Grid.Column="1" Margin="0,0,8,6"/>
                         <StackPanel Grid.Column="2" Orientation="Horizontal">
-                            <Button Content="Restore Selected Backup" Click="HostsRestore_Click"/>
+                            <Button x:Name="HostsRestoreButton" Content="Restore Selected Backup" Click="HostsRestore_Click"/>
                             <Button Content="Open Backup Folder" Click="OpenBackups_Click" Margin="0,0,0,6"/>
                         </StackPanel>
                     </Grid>

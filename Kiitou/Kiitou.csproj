@@ -10,7 +10,7 @@
     <RootNamespace>Kiitou</RootNamespace>
     <ApplicationIcon>..\assets\icons\kiitou_purple.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
     <Product>Kiitou</Product>
     <Description>Kiitou - Host Mapping Manager</Description>
   </PropertyGroup>
