@@ -23,9 +23,9 @@
 
 ## Critical unresolved items
 1. Pass 9 (release verification by a person on a clean Windows machine) has not been done. In particular the Windows elevation prompt has never been accepted or declined by hand.
-2. No license has been chosen.
-3. No reputation service is named in the specification; none is configured.
-4. Whisper Light maximum-size reference unknown. Ghostblood minimum reference cited as 720x450 and enforced.
+2. The user amended many requirements on 2026-11-15 and 2026-11-16. Read [AMENDMENTS.md](AMENDMENTS.md) first; it overrides the specification, task list and pass audits where they differ.
+3. Reputation checks: Quad9 is built in; AbuseIPDB and VirusTotal use the user's own keys and were tested only against simulated replies.
+4. Window size is fixed at 1040 x 622.
 5. The concept images, original icon ZIP and MANIFEST.json are still not in the repository; see [ASSET_TRANSFER.md](ASSET_TRANSFER.md). The approved icons and approved UI screenshot are in `assets/`.
 6. No pass gate has been formally closed by the user.
 

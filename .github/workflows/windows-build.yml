@@ -10,6 +10,7 @@ on:
       - 'assets/**'
       - '.github/**'
       - 'release-tag.txt'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
@@ -56,6 +57,11 @@ jobs:
           if ($other) { throw ("Unexpected sidecar files: " + ($other.Name -join ", ")) }
           Write-Host "Verified publish output: Kiitou.exe"
           Get-Item $exe | Select-Object Name, Length
+
+      - name: Use a screen large enough for the window
+        shell: pwsh
+        continue-on-error: true
+        run: Set-DisplayResolution -Width 1280 -Height 800 -Force
 
       - name: Smoke test the executable
         shell: pwsh

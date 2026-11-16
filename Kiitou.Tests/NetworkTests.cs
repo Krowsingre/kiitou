@@ -205,6 +205,7 @@ public class NetworkTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("does not exist", result.Error);
+        Assert.True(result.NameNotFound);
         Assert.Empty(result.All);
     }
 

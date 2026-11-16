@@ -54,15 +54,12 @@ No pass gate has been formally closed by the user.
 5. Try minimizing to the notification area with the option switched on.
 6. Tick the task list and close the gates, or report what needs changing.
 
+## Amendments
+The user changed several requirements on 2026-11-15 and 2026-11-16: the apply/disable button,
+a fixed window size, the Settings layout, reputation services, and the removal of redundant
+functions. They are listed in `AMENDMENTS.md`, which overrides the earlier documents.
+
 ## Open decisions for the user
-- **License.** None chosen. For "may be shared, may not be sold", the MIT License with the
-  Commons Clause, or the PolyForm Noncommercial License, fit; plain MIT permits selling.
-- **Reputation service.** The specification requires a "supported reputation service" but names
-  none. Any real one needs an account or API key and sends hostnames and addresses to a third
-  party. None is configured.
-- **Whisper Light upper size.** Unknown; no maximum window size is enforced.
-- **Private addresses.** Classed as Failed or Unsafe because public routability is a required
-  check. They can still be selected and applied.
 - **Portable storage.** Settings are written beside the executable whenever that folder is
   writable, so running from Downloads or the Desktop stores them there, and moving the
   executable starts a fresh configuration.

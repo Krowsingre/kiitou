@@ -36,12 +36,35 @@ public sealed class AppSettings
 {
     /// <summary>Show a notification-area icon and hide the window there when minimized.</summary>
     public bool MinimizeToTray { get; set; }
+    /// <summary>Ask Quad9 whether it lists a website's hostname as malicious. Sends the hostname to Quad9.</summary>
+    public bool UseQuad9 { get; set; } = true;
+    /// <summary>The two rows for key-based reputation services.</summary>
+    public List<KeyServiceSlot> KeyServices { get; set; } = [new(), new()];
+    /// <summary>API keys by service, encrypted for the signed-in Windows user. Never exported.</summary>
+    public Dictionary<string, string> ProtectedKeys { get; set; } = [];
+    public CustomDnsSettings CustomDns { get; set; } = new();
+}
+
+public sealed class KeyServiceSlot
+{
+    /// <summary>Empty when no service is chosen in this row.</summary>
+    public string ServiceId { get; set; } = "";
+    public bool Enabled { get; set; }
+}
+
+/// <summary>A filtering DNS server the user supplies, checked the same way as Quad9.</summary>
+public sealed class CustomDnsSettings
+{
+    public string Name { get; set; } = "";
+    public string Server { get; set; } = "";
+    public bool Enabled { get; set; }
 }
 
 public sealed class ThemeSelection
 {
     public string Color { get; set; } = "purple";
-    public string Mode { get; set; } = "dark";
+    /// <summary>"auto" follows the Windows light/dark setting.</summary>
+    public string Mode { get; set; } = "auto";
 }
 
 public sealed class WebsiteEntry

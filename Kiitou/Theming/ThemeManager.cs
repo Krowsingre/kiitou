@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -42,7 +43,9 @@ public static class ThemeManager
     public static void Apply(string color, string mode)
     {
         string family = Families.ContainsKey(color.ToLowerInvariant()) ? color.ToLowerInvariant() : "purple";
-        IsDark = !string.Equals(mode, "light", StringComparison.OrdinalIgnoreCase);
+        IsDark = string.Equals(mode, "auto", StringComparison.OrdinalIgnoreCase)
+            ? !WindowsUsesLightApps()
+            : !string.Equals(mode, "light", StringComparison.OrdinalIgnoreCase);
         var (accent, hover, onAccent) = Families[family];
 
         var theme = new ResourceDictionary();
@@ -55,6 +58,21 @@ public static class ThemeManager
         var merged = Application.Current.Resources.MergedDictionaries;
         if (merged.Count > 0) merged[0] = theme;
         else merged.Add(theme);
+    }
+
+    /// <summary>The Windows "app mode" setting; dark when it cannot be read.</summary>
+    public static bool WindowsUsesLightApps()
+    {
+        try
+        {
+            object? value = Microsoft.Win32.Registry.GetValue(
+                @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme", null);
+            return value is int number && number != 0;
+        }
+        catch (Exception ex) when (ex is System.Security.SecurityException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
     }
 
     public static Uri IconUri(string color) =>

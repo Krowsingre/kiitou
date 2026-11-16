@@ -133,9 +133,10 @@ public static class LegitimacyAssessor
 
         // 1. Anything known against the address, or that makes it unusable.
         bool failed = false;
-        if (!IpClassifier.IsPublic(input.IpAddress, out string notPublic))
+        AddressScope scope = IpClassifier.Classify(input.IpAddress, out string notPublic);
+        if (scope == AddressScope.Unusable)
         {
-            reasons.Add($"Not a public internet address: it is {notPublic}.");
+            reasons.Add($"Not a usable website address: it is {notPublic}.");
             failed = true;
         }
         if (input.Reputation.Verdict == ReputationVerdict.Flagged)
@@ -164,6 +165,9 @@ public static class LegitimacyAssessor
         reasons.Add("Connected on port 443 with a certificate that is trusted and valid for the hostname.");
         reasons.Add($"The server replied with HTTP {test.HttpStatus}.");
 
+        if (scope == AddressScope.Private)
+            warnings.Add($"This is {notPublic}. It only works on your own network and cannot be confirmed against the public internet.");
+
         // 3. Evidence that the address belongs to the hostname.
         bool published = input.Dns is { Succeeded: true } && input.Dns.All.Contains(input.IpAddress);
         bool referenceMatch = input.Reference == ReferenceComparison.Match;
@@ -181,7 +185,9 @@ public static class LegitimacyAssessor
         if (input.Reputation.Verdict == ReputationVerdict.NotChecked)
             warnings.Add("Reputation was not checked: " + input.Reputation.Detail);
         else
-            reasons.Add($"{input.Reputation.Source} reports no known problems.");
+            reasons.Add(input.Reputation.Detail.Length > 0
+                ? input.Reputation.Detail
+                : $"{input.Reputation.Source} reports no known problems.");
         if (test.ChallengeSuspected)
             warnings.Add("The site answered with a browser challenge. Confirm it loads correctly in your browser.");
         if (test.HttpStatus >= 500)

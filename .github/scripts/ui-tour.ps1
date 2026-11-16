@@ -191,9 +191,8 @@ $views = @(
     @{ Nav = "NavWebsites"; Control = "WebsiteList"; Name = "2-websites" },
     @{ Nav = "NavProfiles"; Control = "ProfileGrid"; Name = "3-profiles" },
     @{ Nav = "NavDiscovery"; Control = "TestGrid"; Name = "4-discovery-and-test" },
-    @{ Nav = "NavVerification"; Control = "VerifyGrid"; Name = "5-verification" },
-    @{ Nav = "NavHosts"; Control = "HostsText"; Name = "6-hosts-file" },
-    @{ Nav = "NavSettings"; Control = "TrayOption"; Name = "7-settings" }
+    @{ Nav = "NavHosts"; Control = "HostsText"; Name = "5-hosts-file" },
+    @{ Nav = "NavSettings"; Control = "TrayOption"; Name = "6-settings" }
 )
 
 Write-Host "== Every view (purple, dark)"
@@ -211,17 +210,29 @@ foreach ($view in $views) {
     Write-Host "  $($view.Name) ok"
 }
 
-Write-Host "== Minimum window size"
+Write-Host "== Layout and spacing rules"
+Stop-Kiitou $p
+$report = Join-Path $work "layout-report.txt"
+$check = Start-Process $exeCopy -ArgumentList "--layout-check", "`"$report`"" -PassThru
+if (-not $check.WaitForExit(120000)) { $check.Kill(); throw "The layout check did not finish" }
+if (Test-Path $report) { Get-Content $report | ForEach-Object { Write-Host "  $_" } }
+if ($check.ExitCode -ne 0) { throw "The layout check found problems (exit code $($check.ExitCode))" }
+$p = Start-Kiitou
+
+Write-Host "== Fixed window size"
 (Find-ById $p "NavHome").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-[void][KiitouTourNative]::MoveWindow($p.MainWindowHandle, 40, 40, 300, 200, $true)
-Start-Sleep -Milliseconds 700
 $rect = New-Object KiitouTourNative+Rect
 [void][KiitouTourNative]::GetWindowRect($p.MainWindowHandle, [ref]$rect)
 $w = $rect.Right - $rect.Left; $h = $rect.Bottom - $rect.Top
-Write-Host "  window refused to shrink below $w x $h"
-if ($w -lt 720 -or $h -lt 450) { throw "Window became smaller than 720 x 450 ($w x $h)" }
-if ($w -gt 760 -or $h -gt 490) { throw "Minimum size is larger than expected ($w x $h)" }
-Save-Shot $p "size-minimum-home"
+if ($w -ne 1040 -or $h -ne 622) { throw "Window opened at $w x $h instead of 1040 x 622" }
+foreach ($attempt in @(@(300, 200), @(1600, 1000))) {
+    [void][KiitouTourNative]::MoveWindow($p.MainWindowHandle, 20, 20, $attempt[0], $attempt[1], $true)
+    Start-Sleep -Milliseconds 500
+    [void][KiitouTourNative]::GetWindowRect($p.MainWindowHandle, [ref]$rect)
+    $w = $rect.Right - $rect.Left; $h = $rect.Bottom - $rect.Top
+    if ($w -ne 1040 -or $h -ne 622) { throw "Window changed size to $w x $h when asked for $($attempt[0]) x $($attempt[1])" }
+}
+Write-Host "  window stays at 1040 x 622"
 Stop-Kiitou $p
 $saved = Get-Content $configPath -Raw | ConvertFrom-Json
 if ($saved.Websites.Count -ne 4 -or $saved.Profiles.Count -ne 2) { throw "Configuration changed during the tour" }
@@ -276,11 +287,31 @@ function Click-Dialog($process, [string]$button, [int]$seconds = 60) {
     throw "A dialog with a '$button' button did not appear"
 }
 
-function Get-State($process) { return (Find-ById $process "StateText").Current.Name }
+function Get-Button($process) { return (Find-ById $process "ApplyText").Current.Name }
 
 function Select-Nav($process, [string]$automationId) {
     (Find-ById $process $automationId).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 600
+}
+
+# Waits until a condition holds, or fails with the given description.
+function Wait-Until([scriptblock]$condition, [string]$description, $process, [int]$seconds = 45) {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $seconds) {
+        if (& $condition) { return }
+        Start-Sleep -Milliseconds 300
+    }
+    Save-Shot $process "failure"
+    throw "Timed out waiting for: $description"
+}
+
+function Assert-NoDialog($process, [string]$after) {
+    Start-Sleep -Milliseconds 500
+    $dialog = [KiitouTourNative]::FindDialog($process.Id)
+    if ($dialog -ne [IntPtr]::Zero) {
+        Save-Shot $process "failure"
+        throw "An unexpected message box appeared after ${after}: $([KiitouTourNative]::DialogText($dialog))"
+    }
 }
 
 Write-Host "== End to end through the user interface (build runner only)"
@@ -295,58 +326,53 @@ if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
 
     Write-Config "purple" "dark" $false
     $p = Start-Kiitou
-    if ((Get-State $p) -ne "Not Applied") { throw "Expected 'Not Applied' before applying, saw '$(Get-State $p)'" }
+    if ((Get-Button $p) -ne "Apply Profile") { throw "Expected the button to read 'Apply Profile', saw '$(Get-Button $p)'" }
+    if (-not (Find-ById $p "ProfilePicker").Current.IsEnabled) { throw "The profile list should be free while nothing is applied" }
 
+    # Apply from another view: it must write the profile and return to Home, with no message box.
+    Select-Nav $p "NavWebsites"
     Invoke-Button $p "ApplyButton"
-    $question = Click-Dialog $p "Yes"
-    if ($question -notlike "*4 mappings*Gaming*") { throw "Unexpected apply confirmation: $question" }
-    $answer = Click-Dialog $p "OK"
-    if ($answer -notlike "*profile was applied*") { throw "Unexpected apply result: $answer" }
-    Start-Sleep -Milliseconds 800
-    if ((Get-ManagedCount) -ne 4) { throw "Expected 4 managed hosts entries after applying, found $(Get-ManagedCount)" }
-    if ((Get-State $p) -ne "Profile Active") { throw "Expected 'Profile Active' after applying, saw '$(Get-State $p)'" }
+    Wait-Until { (Get-ManagedCount) -eq 4 } "4 managed hosts entries after applying" $p
+    Wait-Until { (Get-Button $p) -eq "Disable Profile" } "button 'Disable Profile' after applying" $p
+    Assert-NoDialog $p "applying"
+    $homeGrid = Find-ById $p "HomeGrid"
+    if ($null -eq $homeGrid -or $homeGrid.Current.IsOffscreen) { Save-Shot $p "failure"; throw "Apply did not return to Home" }
+    if ((Find-ById $p "ProfilePicker").Current.IsEnabled) { throw "The profile list should be locked while a profile is applied" }
+    $footer = (Find-ById $p "FooterMessage").Current.Name
+    if ($footer -notlike "Applied*Gaming*4 mappings*") { throw "Unexpected footer after applying: $footer" }
     $resolved = [System.Net.Dns]::GetHostAddresses("media.example.com") | ForEach-Object { $_.ToString() }
     if ($resolved -notcontains "151.101.65.69") { throw "Windows did not resolve the applied mapping (got: $resolved)" }
     if (-not (Get-HostsText).StartsWith($hostsBefore.TrimEnd("`r", "`n"))) { throw "Unrelated hosts content changed while applying" }
     Save-Shot $p "e2e-1-applied"
-    Write-Host "  applied through the UI: 4 mappings written, resolved by Windows, state 'Profile Active'"
-
-    # Applying again must report that nothing needs to change.
-    Invoke-Button $p "ApplyButton"
-    $again = Click-Dialog $p "OK"
-    if ($again -notlike "*already contains*") { throw "Unexpected second apply result: $again" }
+    Write-Host "  applied through the UI: 4 mappings written, resolved by Windows, returned to Home, profile list locked"
 
     Write-Host "  unexpected termination"
     $p.Kill(); [void]$p.WaitForExit(5000)
     $p = Start-Kiitou
-    if ((Get-State $p) -ne "Profile Active") { throw "State was not kept after an unexpected termination: '$(Get-State $p)'" }
+    if ((Get-Button $p) -ne "Disable Profile") { throw "State was not kept after an unexpected termination: '$(Get-Button $p)'" }
     $leftovers = @(Get-ChildItem $work -Force -Filter ".kiitou-*")
     if ($leftovers.Count -ne 0) { throw "Temporary files were left behind: $($leftovers.Name -join ', ')" }
 
+    # Disable: removes the mappings and unlocks the profile list, with no message box.
+    Invoke-Button $p "ApplyButton"
+    Wait-Until { (Get-ManagedCount) -eq 0 } "no managed entries after disabling" $p
+    Wait-Until { (Get-Button $p) -eq "Apply Profile" } "button 'Apply Profile' after disabling" $p
+    Assert-NoDialog $p "disabling"
+    if (-not (Find-ById $p "ProfilePicker").Current.IsEnabled) { throw "The profile list should unlock after disabling" }
+    Write-Host "  disabled through the UI"
+
     Select-Nav $p "NavHosts"
-    Invoke-Button $p "HostsRemoveButton"
+    Invoke-Button $p "BackupBarRestore"
     [void](Click-Dialog $p "Yes")
-    $removed = Click-Dialog $p "OK"
-    if ($removed -notlike "*were removed*") { throw "Unexpected removal result: $removed" }
-    Start-Sleep -Milliseconds 800
-    if ((Get-ManagedCount) -ne 0) { throw "Managed entries remained after removal" }
-    if ((Get-State $p) -ne "Not Applied") { throw "Expected 'Not Applied' after removal, saw '$(Get-State $p)'" }
-    Write-Host "  removed through the UI"
-
-    Invoke-Button $p "HostsRestoreButton"
-    [void](Click-Dialog $p "Yes")
-    $restored = Click-Dialog $p "OK"
-    if ($restored -notlike "*was restored*") { throw "Unexpected restore result: $restored" }
-    Start-Sleep -Milliseconds 800
-    if ((Get-ManagedCount) -ne 4) { throw "Restoring the latest backup did not bring back the 4 entries" }
-    if ((Get-State $p) -ne "Profile Active") { throw "Expected 'Profile Active' after restore, saw '$(Get-State $p)'" }
+    Wait-Until { (Get-ManagedCount) -eq 4 } "4 managed entries after restoring the latest backup" $p
+    Wait-Until { (Get-Button $p) -eq "Disable Profile" } "button 'Disable Profile' after restore" $p
+    Assert-NoDialog $p "restoring"
     Save-Shot $p "e2e-2-restored"
-    Write-Host "  latest backup restored through the UI"
+    Write-Host "  latest backup restored through the UI; profile recognised as applied again"
 
-    Invoke-Button $p "HostsRemoveButton"
-    [void](Click-Dialog $p "Yes")
-    [void](Click-Dialog $p "OK")
-    Start-Sleep -Milliseconds 800
+    Invoke-Button $p "ApplyButton"
+    Wait-Until { (Get-ManagedCount) -eq 0 } "no managed entries after the final disable" $p
+    Assert-NoDialog $p "the final disable"
     Stop-Kiitou $p
 
     $hostsAfter = Get-HostsText

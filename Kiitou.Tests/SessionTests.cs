@@ -124,31 +124,94 @@ public class SessionTests
     }
 
     [Fact]
-    public void SwitchingProfilesChangesWhatWouldBeAppliedButNotTheHostsFile()
+    public void TheHeaderStateFollowsApplyEditAndDisable()
     {
         using var fx = new Fixture();
         var (site, first, second) = AddExample(fx.Session);
+        Assert.Equal(ApplyState.NothingApplied, fx.Session.GetHostsStatus().State);
+        Assert.False(fx.Session.GetHostsStatus().ProfileLocked);
+
         fx.Session.Working.SetEnabled(site.Id, true);
         fx.Session.Working.SelectAddress(site.Id, IpFamily.IPv4, first.Id);
         fx.Session.SaveToCurrentProfile();
         fx.Session.Apply(fx.Session.PreviewApply());
-        string applied = fx.HostsText;
+        Assert.Equal(ApplyState.Active, fx.Session.GetHostsStatus().State);
+        Assert.True(fx.Session.GetHostsStatus().ProfileLocked);
 
+        // Editing the applied profile: the change is pending until it is applied in one write.
         fx.Session.Working.SelectAddress(site.Id, IpFamily.IPv4, second.Id);
-        MappingProfile alternate = fx.Session.SaveAsNewProfile("Alternate");
-
-        Assert.Equal(alternate.Id, fx.Session.Config.ActiveProfileId);
-        Assert.False(fx.Session.HasUnsavedChanges);
-        Assert.Equal(applied, fx.HostsText);
-        Assert.False(fx.Session.GetHostsStatus().MatchesSelectedProfile);
-
-        fx.Session.Apply(fx.Session.PreviewApply());
+        Assert.Equal(ApplyState.ChangesPending, fx.Session.GetHostsStatus().State);
+        Assert.True(fx.Session.GetHostsStatus().ProfileLocked);
+        fx.Session.SaveToCurrentProfile();
+        Assert.Equal(ApplyState.ChangesPending, fx.Session.GetHostsStatus().State);
+        Assert.True(fx.Session.Apply(fx.Session.PreviewApply()).Succeeded);
         Assert.Contains("151.101.1.69 example.com # Kiitou", fx.HostsText);
         Assert.DoesNotContain("93.184.216.34", fx.HostsText);
+        Assert.Equal(ApplyState.Active, fx.Session.GetHostsStatus().State);
 
-        fx.Session.SwitchProfile(fx.Session.Profiles.Profiles[0].Id);
-        Assert.Equal(first.Id, fx.Session.Working.View(site.Id).SelectedIpv4Id);
-        Assert.False(fx.Session.GetHostsStatus().MatchesSelectedProfile);
+        // Disabling removes the mappings and unlocks the selection.
+        Assert.True(fx.Session.RemoveAllMappings().Succeeded);
+        Assert.Equal(OriginalHosts, fx.HostsText);
+        Assert.Equal(ApplyState.NothingApplied, fx.Session.GetHostsStatus().State);
+        Assert.True(fx.Session.Working.View(site.Id).Enabled);
+    }
+
+    [Fact]
+    public void TheSelectionIsLockedToTheAppliedProfile()
+    {
+        using var fx = new Fixture();
+        var (site, first, _) = AddExample(fx.Session);
+        MappingProfile other = fx.Session.CreateProfile("Other");
+        fx.Session.Working.SetEnabled(site.Id, true);
+        fx.Session.Working.SelectAddress(site.Id, IpFamily.IPv4, first.Id);
+        fx.Session.SaveToCurrentProfile();
+        fx.Session.Apply(fx.Session.PreviewApply());
+        Guid applied = fx.Session.Config.ActiveProfileId;
+
+        Assert.Throws<CatalogException>(() => fx.Session.SwitchProfile(other.Id));
+        Assert.Throws<CatalogException>(() => fx.Session.DeleteProfile(applied));
+        Assert.Throws<CatalogException>(() => fx.Session.SaveAsNewProfile("Copy"));
+        Assert.Equal(applied, fx.Session.Config.ActiveProfileId);
+        fx.Session.DeleteProfile(other.Id);
+
+        fx.Session.RemoveAllMappings();
+        MappingProfile second = fx.Session.CreateProfile("Second");
+        fx.Session.SwitchProfile(second.Id);
+        Assert.Equal(second.Id, fx.Session.Config.ActiveProfileId);
+    }
+
+    [Fact]
+    public void ARelaunchSelectsTheAppliedProfileAndUnknownMappingsAreRecognised()
+    {
+        using var fx = new Fixture();
+        var (site, first, _) = AddExample(fx.Session);
+        fx.Session.Working.SetEnabled(site.Id, true);
+        fx.Session.Working.SelectAddress(site.Id, IpFamily.IPv4, first.Id);
+        fx.Session.SaveToCurrentProfile();
+        fx.Session.Apply(fx.Session.PreviewApply());
+        Guid applied = fx.Session.Config.ActiveProfileId;
+
+        // A settings file that points at another profile while one is applied is corrected on launch.
+        MappingProfile stray = fx.Session.Profiles.Create("Stray");
+        fx.Session.Config.ActiveProfileId = stray.Id;
+        fx.Session.Save();
+        KeiSessionCheck(fx.Open(), applied, ApplyState.Active);
+
+        // Mappings whose profile is no longer recorded can only be cleared.
+        fx.Session.Config.ActiveProfileId = applied;
+        fx.Session.Config.Hosts.LastAppliedProfileId = null;
+        fx.Session.Save();
+        KiitouSession unknown = fx.Open();
+        Assert.Equal(ApplyState.UnknownMappings, unknown.GetHostsStatus().State);
+        Assert.False(unknown.GetHostsStatus().ProfileLocked);
+        Assert.True(unknown.RemoveAllMappings().Succeeded);
+        Assert.Equal(ApplyState.NothingApplied, unknown.GetHostsStatus().State);
+    }
+
+    private static void KeiSessionCheck(KiitouSession session, Guid expectedProfile, ApplyState expectedState)
+    {
+        Assert.Equal(expectedProfile, session.Config.ActiveProfileId);
+        Assert.Equal(expectedState, session.GetHostsStatus().State);
     }
 
     [Fact]
@@ -187,6 +250,7 @@ public class SessionTests
         Assert.True(fx.Session.Restore(beforeRemoval.Path).Succeeded);
         Assert.Equal(applied, fx.HostsText);
         Assert.True(fx.Session.GetHostsStatus().MatchesSelectedProfile);
+        Assert.Equal(ApplyState.Active, fx.Session.GetHostsStatus().State);
     }
 
     [Fact]
@@ -267,6 +331,9 @@ public class SessionTests
         Assert.Equal("teal", relaunched.Config.Theme.Color);
         Assert.Equal("light", relaunched.Config.Theme.Mode);
         Assert.True(relaunched.Config.Settings.MinimizeToTray);
+        Assert.True(relaunched.Config.Settings.UseQuad9);
+        fx.Session.SetUseQuad9(false);
+        Assert.False(fx.Open().Config.Settings.UseQuad9);
         Assert.Throws<CatalogException>(() => fx.Session.SetTheme("pink", "dark"));
     }
 
@@ -284,7 +351,7 @@ public class SessionTests
                 combinations++;
             }
         }
-        Assert.Equal(14, combinations);
+        Assert.Equal(21, combinations);
     }
 
     [Fact]
@@ -296,13 +363,12 @@ public class SessionTests
         source.Session.Working.SelectAddress(site.Id, IpFamily.IPv4, first.Id);
         MappingProfile gaming = source.Session.SaveAsNewProfile("Gaming");
         string profileJson = source.Session.ExportProfile(gaming.Id);
-        string collectionJson = source.Session.ExportCollection();
 
         using var target = new Fixture();
-        Assert.Equal(1, target.Session.ImportCollection(collectionJson).WebsitesAdded);
         ImportSummary summary = target.Session.ImportProfile(profileJson);
 
-        Assert.Equal(0, summary.WebsitesAdded);
+        Assert.Equal(1, summary.WebsitesAdded);
+        Assert.Equal(2, summary.AddressesAdded);
         KiitouSession relaunched = target.Open();
         Assert.Equal(new[] { "Default", "Gaming" }, relaunched.Profiles.Profiles.Select(p => p.Name).ToArray());
         Assert.Single(relaunched.Profiles.BuildMappings(summary.Profile!.Id));

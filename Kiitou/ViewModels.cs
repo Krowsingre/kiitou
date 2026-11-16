@@ -1,8 +1,9 @@
+using System.Windows;
 using System.Windows.Media;
 
 namespace Kiitou;
 
-/// <summary>One choice in an address drop-down. A null <see cref="Id"/> means "Not Assigned".</summary>
+/// <summary>One choice in an address drop-down. A null <see cref="Id"/> means "none".</summary>
 public sealed class AddressOption
 {
     public Guid? Id { get; init; }
@@ -17,8 +18,12 @@ public sealed class WebsiteRow
     public string Hostname { get; init; } = "";
     public string Summary { get; init; } = "";
     public bool Enabled { get; init; }
-    public List<AddressOption> Options { get; init; } = [];
-    public AddressOption? Selected { get; init; }
+    public List<AddressOption> Ipv4Options { get; init; } = [];
+    public AddressOption? Ipv4Selected { get; init; }
+    public Visibility Ipv4Visibility { get; init; }
+    public List<AddressOption> Ipv6Options { get; init; } = [];
+    public AddressOption? Ipv6Selected { get; init; }
+    public Visibility Ipv6Visibility { get; init; }
     public int AddressCount { get; init; }
     public string StatusText { get; init; } = "";
     public string StatusGlyph { get; init; } = "";
@@ -63,5 +68,14 @@ public sealed class NamedItem
     public Guid Id { get; init; }
     public string Name { get; init; } = "";
     public string? Path { get; init; }
+    public override string ToString() => Name;
+}
+
+/// <summary>A drop-down choice identified by a text key, optionally with a color swatch.</summary>
+public sealed class KeyedChoice
+{
+    public string Key { get; init; } = "";
+    public string Name { get; init; } = "";
+    public Brush? Swatch { get; init; }
     public override string ToString() => Name;
 }

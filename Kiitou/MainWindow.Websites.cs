@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Kiitou.Hosts;
 using Kiitou.Models;
+using Kiitou.Session;
 
 namespace Kiitou;
 
@@ -179,17 +180,6 @@ public partial class MainWindow
         Try(() => _s.RemoveAddress(row.WebsiteId, row.Id));
     }
 
-    private async void WebsiteTestSelected_Click(object sender, RoutedEventArgs e)
-    {
-        if (AddressGrid.SelectedItem is not AddressRow row)
-        {
-            Info("Select an address in the table first.");
-            return;
-        }
-        await RunBusyAsync($"Testing {row.IpAddress}...",
-            token => _s.VerifyAddressAsync(row.WebsiteId, row.Id, null, token));
-    }
-
     // ---- Profiles ----------------------------------------------------------------------
 
     private void RefreshProfiles()
@@ -198,8 +188,10 @@ public partial class MainWindow
         var rows = _s.Profiles.Profiles.Select(p =>
         {
             var states = new List<string>();
-            if (p.Id == _s.Config.ActiveProfileId) states.Add(_s.HasUnsavedChanges ? "Selected (unsaved changes)" : "Selected");
-            if (p.Id == _s.Config.Hosts.LastAppliedProfileId) states.Add("Last applied");
+            bool selected = p.Id == _s.Config.ActiveProfileId;
+            if (selected && _state is ApplyState.Active or ApplyState.ChangesPending) states.Add("Applied");
+            else if (selected) states.Add("Selected");
+            if (selected && _s.HasUnsavedChanges) states.Add("unsaved changes");
             return new ProfileRow
             {
                 Id = p.Id,
@@ -295,12 +287,6 @@ public partial class MainWindow
 
     private void ExportProfile_Click(object sender, RoutedEventArgs e) => ExportProfile(_s.Profiles.Active);
 
-    private void ProfileExportSelected_Click(object sender, RoutedEventArgs e)
-    {
-        if (RequireProfile() is not { } row) return;
-        ExportProfile(_s.Profiles.Get(row.Id));
-    }
-
     private void ExportProfile(MappingProfile profile)
     {
         if (profile.Id == _s.Config.ActiveProfileId && _s.HasUnsavedChanges &&
@@ -308,24 +294,5 @@ public partial class MainWindow
             return;
         if (PickSave("Export Profile", "Kiitou profile - " + profile.Name) is not { } path) return;
         Try(() => File.WriteAllText(path, _s.ExportProfile(profile.Id)));
-    }
-
-    private void ImportCollection_Click(object sender, RoutedEventArgs e)
-    {
-        if (PickOpen("Import Website Collection") is not { } path) return;
-        string? done = null;
-        Try(() =>
-        {
-            var summary = _s.ImportCollection(ReadImportFile(path));
-            done = $"Websites added: {summary.WebsitesAdded}\nCandidate addresses added: {summary.AddressesAdded}\n\n" +
-                   "Nothing was removed or overwritten, and the hosts file was not changed.";
-        });
-        if (done is not null) Info(done);
-    }
-
-    private void ExportCollection_Click(object sender, RoutedEventArgs e)
-    {
-        if (PickSave("Export Website Collection", "Kiitou websites") is not { } path) return;
-        Try(() => File.WriteAllText(path, _s.ExportCollection()));
     }
 }
