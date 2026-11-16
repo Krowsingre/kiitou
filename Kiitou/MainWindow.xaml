@@ -495,10 +495,10 @@
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="22"/>
-                                        <RowDefinition Height="33"/>
-                                        <RowDefinition Height="44"/>
-                                        <RowDefinition Height="44"/>
-                                        <RowDefinition Height="33"/>
+                                        <RowDefinition Height="32"/>
+                                        <RowDefinition Height="42"/>
+                                        <RowDefinition Height="42"/>
+                                        <RowDefinition Height="32"/>
                                     </Grid.RowDefinitions>
                                     <Border Grid.ColumnSpan="4" Background="{DynamicResource PanelAlt}" CornerRadius="4"/>
                                     <TextBlock Text="Service" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
