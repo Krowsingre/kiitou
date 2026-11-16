@@ -335,8 +335,8 @@ if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
     Wait-Until { (Get-ManagedCount) -eq 4 } "4 managed hosts entries after applying" $p
     Wait-Until { (Get-Button $p) -eq "Disable Profile" } "button 'Disable Profile' after applying" $p
     Assert-NoDialog $p "applying"
-    $home = Find-ById $p "HomeGrid"
-    if ($null -eq $home -or $home.Current.IsOffscreen) { Save-Shot $p "failure"; throw "Apply did not return to Home" }
+    $homeGrid = Find-ById $p "HomeGrid"
+    if ($null -eq $homeGrid -or $homeGrid.Current.IsOffscreen) { Save-Shot $p "failure"; throw "Apply did not return to Home" }
     if ((Find-ById $p "ProfilePicker").Current.IsEnabled) { throw "The profile list should be locked while a profile is applied" }
     $footer = (Find-ById $p "FooterMessage").Current.Name
     if ($footer -notlike "Applied*Gaming*4 mappings*") { throw "Unexpected footer after applying: $footer" }
