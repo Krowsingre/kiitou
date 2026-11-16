@@ -483,22 +483,22 @@
 
                         <Border x:Name="ReputationCard" Grid.Row="2" Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Text="Reputation Checks" Style="{StaticResource CardTitle}" Margin="0,0,0,2"/>
-                                <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,6"
+                                <TextBlock Text="Reputation Checks" Style="{StaticResource CardTitle}" Margin="0,0,0,1"/>
+                                <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,5"
                                            Text="Services asked whether a website or address is known to be malicious. A service is only contacted while it is switched on."/>
                                 <Grid x:Name="ReputationTable">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="250"/>
+                                        <ColumnDefinition Width="270"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="100"/>
                                         <ColumnDefinition Width="70"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition Height="24"/>
-                                        <RowDefinition Height="40"/>
-                                        <RowDefinition Height="50"/>
-                                        <RowDefinition Height="50"/>
-                                        <RowDefinition Height="40"/>
+                                        <RowDefinition Height="22"/>
+                                        <RowDefinition Height="33"/>
+                                        <RowDefinition Height="44"/>
+                                        <RowDefinition Height="44"/>
+                                        <RowDefinition Height="33"/>
                                     </Grid.RowDefinitions>
                                     <Border Grid.ColumnSpan="4" Background="{DynamicResource PanelAlt}" CornerRadius="4"/>
                                     <TextBlock Text="Service" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
@@ -596,21 +596,23 @@
 
                         <Grid Grid.Row="4">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*"/>
+                                <ColumnDefinition Width="5*"/>
                                 <ColumnDefinition Width="12"/>
-                                <ColumnDefinition Width="3*"/>
+                                <ColumnDefinition Width="9*"/>
                             </Grid.ColumnDefinitions>
                             <Border x:Name="StorageCard" Style="{StaticResource Card}">
                                 <StackPanel>
                                     <TextBlock Text="Storage" Style="{StaticResource CardTitle}"/>
                                     <TextBlock x:Name="StorageText" Style="{StaticResource MutedText}"/>
+                                    <TextBlock x:Name="StorageFolder" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="StorageBackups" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
                             </Border>
                             <Border x:Name="AboutCard" Grid.Column="2" Style="{StaticResource Card}">
                                 <StackPanel>
                                     <TextBlock Text="About" Style="{StaticResource CardTitle}"/>
-                                    <TextBlock x:Name="AboutVersion" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                                    <TextBlock x:Name="AboutText" Style="{StaticResource MutedText}"/>
+                                    <TextBlock x:Name="AboutVersion" FontWeight="SemiBold" Margin="0,0,0,1"/>
+                                    <TextBlock x:Name="AboutText" Style="{StaticResource MutedText}" FontSize="11.5"/>
                                 </StackPanel>
                             </Border>
                         </Grid>
