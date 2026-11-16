@@ -16,20 +16,24 @@ The executable is not code-signed, so Windows SmartScreen may warn about an unkn
 
 - **Websites and addresses.** Add websites and any number of IPv4 and IPv6 candidates for each.
   Enable one, some, all or none. Disabling a website keeps its addresses and choices.
-- **Profiles.** Create, rename, duplicate, delete, switch, import and export. Edits are held as
-  unsaved changes. **Save** stores them in the profile and leaves you where you are. **Apply**
-  stores them, writes the profile to the hosts file, and returns to Home.
+- **Profiles.** Create, rename, duplicate, delete, switch, import and export. **Save** stores
+  your changes in the profile. **Apply Profile** stores them, writes the profile to the hosts
+  file and returns to Home. While a profile is applied the same button reads **Disable
+  Profile**, or **Apply Changes** if you have edited it.
 - **DNS discovery.** Look up the addresses currently published for a website and add the ones
   you choose. Saved addresses are never removed for you.
 - **Testing.** Test one address, all of them, or find the first that works. Tests connect
   straight to the candidate address on port 443 while using the real hostname for TLS and HTTP,
   without touching the hosts file.
-- **Verification.** Each address gets one of four statuses, with the reasons behind it:
-  Connection Verified; Connection Works, Verification Incomplete; Failed or Unsafe; Not Tested.
+- **Statuses.** Each address gets one of four, with the reasons behind it: Connection Verified;
+  Connection Works, Verification Incomplete; Failed or Unsafe; Not Tested.
+- **Reputation checks.** Quad9 is built in and needs no account. You can add your own AbuseIPDB
+  or VirusTotal key, or any filtering DNS server. Each can be switched off.
 - **Hosts file.** Kiitou only ever changes its own clearly marked section. Everything else in
   the file is preserved byte for byte. It backs up the file before every change, keeps the
   original permanently, notices changes made by other programs, and can restore any backup.
-- **Appearance.** Seven color families, each in dark and light, with a matching icon.
+- **Appearance.** Seven color families, each in dark and light, with a matching icon, and an
+  Auto mode that follows Windows.
 
 Kiitou runs without administrator rights. Windows asks for permission only at the moment the
 hosts file is written. If you decline, nothing is changed.
@@ -40,7 +44,8 @@ A green "Connection Verified" means the connection behaves correctly: the addres
 it presents a certificate that is trusted and valid for the hostname. **It does not prove that
 an address is authentic or that a website is safe.**
 
-No reputation service is configured, so every result notes that reputation was not checked.
+Reputation checks send the website's hostname (Quad9, custom DNS) or its address (AbuseIPDB,
+VirusTotal) to that service. A service is only contacted while it is switched on.
 
 Security software sometimes blocks or reverts changes to the hosts file. Kiitou reports when
 what it wrote is not what the file contains afterwards.

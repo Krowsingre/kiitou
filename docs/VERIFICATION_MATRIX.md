@@ -1,6 +1,7 @@
 # Kiitou Verification Matrix
 
-Each item of `APPROVED_TASK_LIST.md`, with what was verified and how. The checkboxes in the task
+Each item of `APPROVED_TASK_LIST.md`, with what was verified and how. Items changed by the user
+afterwards are described in `AMENDMENTS.md`. The checkboxes in the task
 list itself are left for the user to tick.
 
 Legend: **A** = automated test on the Windows build runner. **E** = end-to-end run of the
@@ -22,8 +23,8 @@ decided.
 | Item | Evidence |
 | --- | --- |
 | Approved original layout | S. **Open:** user's visual sign-off |
-| Not fullscreen; between 720 x 450 and Echo Light's 1093 x 622 | E (window opens at 1040 x 620 and refuses to change size), per the user's amendment of 2026-11-15 |
-| Entries, Profiles, Settings and left navigation | E (all seven views opened) |
+| Not fullscreen; between 720 x 450 and Echo Light's 1093 x 622 | E (window opens at 1040 x 622 and refuses to change size), per `AMENDMENTS.md` |
+| Entries, Profiles, Settings and left navigation | E (all six views opened; Verification merged into Discovery & Test per `AMENDMENTS.md`) |
 | Search and filter, entry statuses, optional tray | S for search, filter and statuses; E for starting with the tray icon on. **Open:** minimizing to and restoring from the tray by hand |
 | Seven icon colors x dark/light = 14; icon changes with color | E (all 14 start and close cleanly), S |
 
@@ -52,7 +53,7 @@ decided.
 | Save enabled combinations and selected IPs | A |
 | Default profile with none enabled | A |
 | Save to active or new profile; no silent overwrite | A |
-| Switch and apply exact profile mappings | A, E (Apply saves, writes, and returns to Home without a message box) |
+| Switch and apply exact profile mappings | A, E (apply, disable, and restore through the window; profile list locked while applied) |
 
 ## 6. DNS discovery
 
@@ -79,7 +80,7 @@ decided.
 | Item | Evidence |
 | --- | --- |
 | Public routability, DNS association, certificate, HTTP response | A |
-| Supported reputation service | **Open:** none is named in the specification; none is configured. Results say reputation was not checked |
+| Supported reputation service | A: Quad9 (logic, plus a live check), AbuseIPDB and VirusTotal against simulated replies, custom filtering DNS. **Open:** the two key-based services against the real services |
 | Reference content comparison | A (certificate and HTTP status against a DNS-published address) |
 | Separate connection, association and safety claims | A |
 | The four statuses | A, S |
@@ -109,7 +110,7 @@ decided.
 | --- | --- |
 | First-change backup, continued backups, restore | A, E |
 | Safe recovery without third-party modifications | A, E |
-| Collections import/export; configuration independent of hosts state | A |
+| Collections import/export; configuration independent of hosts state | Collections import/export removed per `AMENDMENTS.md`; independence: A |
 
 ## 12. Packaging and distribution
 

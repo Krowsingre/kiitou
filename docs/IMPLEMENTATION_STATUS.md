@@ -54,22 +54,12 @@ No pass gate has been formally closed by the user.
 5. Try minimizing to the notification area with the option switched on.
 6. Tick the task list and close the gates, or report what needs changing.
 
-## Amendments approved by the user on 2026-11-15
-- **Apply saves, writes and leaves.** Apply Selected Profile saves any unsaved changes to the
-  selected profile, writes it to the hosts file, and returns to Home. It asks a question only
-  when there is a conflict, an outside edit, damaged markers, or an enabled website with no
-  address. Success is reported in the status footer, not a message box. Save to Current Profile
-  only saves. This replaces the earlier "save first?" prompt.
-- **One fixed window size.** The window is 1040 x 620 and cannot be resized or maximized. It
-  lies between the two references the user gave: 720 x 450 (lower) and Echo Light's 1093 x 622
-  (upper). This replaces the earlier resizable window with a 720 x 450 minimum.
-- **Private addresses** being classed Failed or Unsafe was approved as it stands.
-- **License:** MIT License with the Commons Clause condition (`LICENSE`).
+## Amendments
+The user changed several requirements on 2026-11-15 and 2026-11-16: the apply/disable button,
+a fixed window size, the Settings layout, reputation services, and the removal of redundant
+functions. They are listed in `AMENDMENTS.md`, which overrides the earlier documents.
 
 ## Open decisions for the user
-- **Reputation service.** The specification requires a "supported reputation service" but names
-  none. Any real one needs an account or API key and sends hostnames and addresses to a third
-  party. None is configured.
 - **Portable storage.** Settings are written beside the executable whenever that folder is
   writable, so running from Downloads or the Desktop stores them there, and moving the
   executable starts a fresh configuration.

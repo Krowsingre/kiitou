@@ -522,9 +522,9 @@
 
                                     <!-- Key-based service, first row -->
                                     <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="8,0,0,0">
-                                        <ComboBox x:Name="SlotService0" Tag="0" Width="220" HorizontalAlignment="Left" MinHeight="26"
+                                        <ComboBox x:Name="SlotService0" Tag="0" Width="220" HorizontalAlignment="Left" MinHeight="24" Height="24"
                                                   SelectionChanged="SlotService_Changed"/>
-                                        <TextBlock x:Name="SlotHint0" Foreground="{DynamicResource Muted}" FontSize="11" Margin="1,2,0,0"/>
+                                        <TextBlock x:Name="SlotHint0" Foreground="{DynamicResource Muted}" FontSize="11" Margin="1,1,0,0"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Grid Width="250">
@@ -546,9 +546,9 @@
 
                                     <!-- Key-based service, second row -->
                                     <StackPanel Grid.Row="3" VerticalAlignment="Center" Margin="8,0,0,0">
-                                        <ComboBox x:Name="SlotService1" Tag="1" Width="220" HorizontalAlignment="Left" MinHeight="26"
+                                        <ComboBox x:Name="SlotService1" Tag="1" Width="220" HorizontalAlignment="Left" MinHeight="24" Height="24"
                                                   SelectionChanged="SlotService_Changed"/>
-                                        <TextBlock x:Name="SlotHint1" Foreground="{DynamicResource Muted}" FontSize="11" Margin="1,2,0,0"/>
+                                        <TextBlock x:Name="SlotHint1" Foreground="{DynamicResource Muted}" FontSize="11" Margin="1,1,0,0"/>
                                     </StackPanel>
                                     <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <Grid Width="250">
