@@ -4,16 +4,14 @@ using Kiitou.Models;
 
 namespace Kiitou.Catalog;
 
-/// <summary>The portable file format for one profile or for the whole website collection.</summary>
+/// <summary>The portable file format for one profile, including every website and candidate address.</summary>
 public sealed class TransferDocument
 {
     public const string ProfileFormat = "kiitou-profile";
-    public const string CollectionFormat = "kiitou-collection";
     public const int CurrentVersion = 1;
 
     public string Format { get; set; } = "";
     public int Version { get; set; } = CurrentVersion;
-    /// <summary>Profile name; unused for collections.</summary>
     public string? Name { get; set; }
     public DateTime ExportedUtc { get; set; }
     public List<TransferWebsite> Websites { get; set; } = [];
@@ -32,7 +30,7 @@ public sealed class TransferWebsite
 public sealed record ImportSummary(int WebsitesAdded, int AddressesAdded, MappingProfile? Profile);
 
 /// <summary>
-/// Exports and imports profiles and website collections as self-contained JSON. Files refer to
+/// Exports and imports profiles as self-contained JSON. Files refer to
 /// websites and addresses by value, so they can be moved between computers. Importing only ever
 /// adds websites and candidate addresses; nothing already saved is removed or overwritten, and
 /// nothing is written to the hosts file.
@@ -71,21 +69,6 @@ public static class ProfileTransfer
         return JsonSerializer.Serialize(document, Options);
     }
 
-    public static string ExportCollection(AppConfiguration config, DateTime utcNow)
-    {
-        var document = new TransferDocument
-        {
-            Format = TransferDocument.CollectionFormat,
-            ExportedUtc = utcNow,
-            Websites = config.Websites.Select(w => new TransferWebsite
-            {
-                Hostname = w.Hostname,
-                Addresses = w.Addresses.Select(a => a.IpAddress).ToList()
-            }).ToList()
-        };
-        return JsonSerializer.Serialize(document, Options);
-    }
-
     /// <summary>
     /// Adds the file's websites and addresses where missing and creates a new profile from its
     /// choices. If the file is invalid in any way, nothing is changed.
@@ -114,14 +97,6 @@ public static class ProfileTransfer
         return new ImportSummary(websitesAdded, addressesAdded, profile);
     }
 
-    /// <summary>Adds the file's websites and addresses where missing. If the file is invalid, nothing is changed.</summary>
-    public static ImportSummary ImportCollection(AppConfiguration config, string json)
-    {
-        List<TransferWebsite> websites = Parse(json, TransferDocument.CollectionFormat, out _);
-        (int websitesAdded, int addressesAdded) = Merge(config, websites);
-        return new ImportSummary(websitesAdded, addressesAdded, null);
-    }
-
     /// <summary>Reads and fully validates a file, returning its websites in normalized, de-duplicated form.</summary>
     private static List<TransferWebsite> Parse(string json, string expectedFormat, out TransferDocument document)
     {
@@ -140,10 +115,7 @@ public static class ProfileTransfer
         if (parsed is null || parsed.Websites is null)
             throw new CatalogException("The file is not a Kiitou export.");
         if (parsed.Format != expectedFormat)
-        {
-            string wanted = expectedFormat == TransferDocument.ProfileFormat ? "profile" : "website collection";
-            throw new CatalogException($"The file is not a Kiitou {wanted} export.");
-        }
+            throw new CatalogException("The file is not a Kiitou profile export.");
         if (parsed.Version != TransferDocument.CurrentVersion)
             throw new CatalogException("The file was made by a different version of Kiitou and cannot be read.");
         document = parsed;

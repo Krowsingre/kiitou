@@ -3,9 +3,31 @@ using System.Net.Sockets;
 
 namespace Kiitou.Verification;
 
+public enum AddressScope
+{
+    /// <summary>Routable on the public internet.</summary>
+    Public,
+    /// <summary>Usable only inside a home, office or carrier network.</summary>
+    Private,
+    /// <summary>Cannot be a real website's address (loopback, reserved, documentation and similar).</summary>
+    Unusable
+}
+
 /// <summary>Decides whether an address is publicly routable on the internet.</summary>
 public static class IpClassifier
 {
+    private static readonly HashSet<string> PrivateNetworks =
+        ["10.0.0.0", "100.64.0.0", "169.254.0.0", "172.16.0.0", "192.168.0.0", "fc00::", "fe80::"];
+
+    /// <param name="reason">When not public, a phrase that completes "It is ...".</param>
+    public static AddressScope Classify(string? ipAddress, out string reason)
+    {
+        if (IsPublic(ipAddress, out reason, out string? network)) return AddressScope.Public;
+        return network is not null && PrivateNetworks.Contains(network) ? AddressScope.Private : AddressScope.Unusable;
+    }
+
+    public static bool IsPublic(string? ipAddress, out string reason) => IsPublic(ipAddress, out reason, out _);
+
     private static readonly (string Network, int PrefixLength, string Description)[] NonPublicIpv4 =
     [
         ("0.0.0.0", 8, "an unspecified \"this network\" address"),
@@ -37,10 +59,10 @@ public static class IpClassifier
         ("ff00::", 8, "a multicast address")
     ];
 
-    /// <param name="reason">When not public, a phrase that completes "It is ...".</param>
-    public static bool IsPublic(string? ipAddress, out string reason)
+    private static bool IsPublic(string? ipAddress, out string reason, out string? matchedNetwork)
     {
         reason = "";
+        matchedNetwork = null;
         if (!IPAddress.TryParse(ipAddress, out IPAddress? address))
         {
             reason = "not a valid IP address";
@@ -55,6 +77,7 @@ public static class IpClassifier
             if (HasPrefix(bytes, IPAddress.Parse(network).GetAddressBytes(), prefixLength))
             {
                 reason = description;
+                matchedNetwork = network;
                 return false;
             }
         }

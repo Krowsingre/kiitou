@@ -12,7 +12,8 @@ public sealed record DnsLookupResult(
     IReadOnlyList<string> Ipv4,
     IReadOnlyList<string> Ipv6,
     string? Server,
-    string? Error)
+    string? Error,
+    bool NameNotFound = false)
 {
     public bool Succeeded => Error is null;
     public IEnumerable<string> All => Ipv4.Concat(Ipv6);
@@ -52,7 +53,7 @@ public sealed class DirectDnsResolver : IDnsResolver
             {
                 DnsResponse a = await QueryAsync(server, hostname, DnsRecordType.A, cancellationToken).ConfigureAwait(false);
                 if (a.ResponseCode == DnsMessage.NameError)
-                    return Failure(hostname, server.ToString(), $"{hostname} does not exist in DNS.");
+                    return Failure(hostname, server.ToString(), $"{hostname} does not exist in DNS.") with { NameNotFound = true };
                 DnsResponse aaaa = await QueryAsync(server, hostname, DnsRecordType.AAAA, cancellationToken).ConfigureAwait(false);
 
                 if (a.ResponseCode != 0 && aaaa.ResponseCode != 0)

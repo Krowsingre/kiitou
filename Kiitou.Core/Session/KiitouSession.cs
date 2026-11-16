@@ -7,6 +7,19 @@ using Kiitou.Verification;
 
 namespace Kiitou.Session;
 
+/// <summary>What the single header button would do, and whether the profile is live.</summary>
+public enum ApplyState
+{
+    /// <summary>Kiitou manages nothing in the hosts file. The button applies the selected profile.</summary>
+    NothingApplied,
+    /// <summary>The hosts file holds exactly what is on screen. The button disables the profile.</summary>
+    Active,
+    /// <summary>The applied profile has been edited since. The button applies the changes.</summary>
+    ChangesPending,
+    /// <summary>Kiitou's mappings are in the hosts file but belong to no saved profile. The button clears them.</summary>
+    UnknownMappings
+}
+
 /// <summary>How the hosts file currently relates to the selected profile.</summary>
 public sealed record HostsStatus(
     int ManagedMappingCount,
@@ -14,7 +27,12 @@ public sealed record HostsStatus(
     bool ExternalEditDetected,
     bool BlockDamaged,
     IReadOnlyList<HostsConflict> Conflicts,
-    string? ReadError);
+    string? ReadError,
+    ApplyState State = ApplyState.NothingApplied)
+{
+    /// <summary>While a profile is applied the profile drop-down stays on it.</summary>
+    public bool ProfileLocked => State is ApplyState.Active or ApplyState.ChangesPending;
+}
 
 /// <summary>
 /// The running application's state and every operation the user interface offers.
@@ -42,6 +60,29 @@ public sealed class KiitouSession
         Catalog = new WebsiteCatalog(config);
         Profiles = new ProfileManager(config, _utcNow);
         Working = new SelectionEditor(config, SelectionEditor.Copy(Profiles.Active.Selections));
+        FollowAppliedProfile();
+    }
+
+    /// <summary>
+    /// If a profile is applied in the hosts file, makes it the selected one, because the
+    /// selection is locked to the applied profile.
+    /// </summary>
+    private void FollowAppliedProfile()
+    {
+        try
+        {
+            Guid? applied = Config.Hosts.LastAppliedProfileId;
+            if (applied is not Guid id || id == Config.ActiveProfileId) return;
+            if (Config.Profiles.All(p => p.Id != id)) return;
+            if (_hosts.Inspect().Analysis.ManagedMappings.Count == 0) return;
+            Profiles.SetActive(id);
+            ReloadWorking();
+            Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // The hosts file could not be read; the status shown to the user reports that.
+        }
     }
 
     public ConfigurationStore Store { get; }
@@ -90,6 +131,8 @@ public sealed class KiitouSession
     /// <summary>Selects another profile and loads its saved choices, discarding unsaved ones.</summary>
     public void SwitchProfile(Guid profileId) => Saved(() =>
     {
+        if (profileId != Config.ActiveProfileId && GetHostsStatus().ProfileLocked)
+            throw new CatalogException($"\"{Profiles.Active.Name}\" is applied. Disable it before switching to another profile.");
         Profiles.SetActive(profileId);
         ReloadWorking();
     });
@@ -99,6 +142,8 @@ public sealed class KiitouSession
     /// <summary>Saves the working choices as a new profile and selects it. Existing profiles are unchanged.</summary>
     public MappingProfile SaveAsNewProfile(string name) => Saved(() =>
     {
+        if (GetHostsStatus().ProfileLocked)
+            throw new CatalogException($"\"{Profiles.Active.Name}\" is applied. Disable it before saving a new profile from it.");
         MappingProfile profile = Profiles.SaveAsNew(name, Working.Selections);
         Profiles.SetActive(profile.Id);
         ReloadWorking();
@@ -113,6 +158,8 @@ public sealed class KiitouSession
 
     public void DeleteProfile(Guid profileId) => Saved(() =>
     {
+        if (profileId == Config.ActiveProfileId && GetHostsStatus().ProfileLocked)
+            throw new CatalogException($"\"{Profiles.Active.Name}\" is applied. Disable it before deleting it.");
         bool wasActive = Config.ActiveProfileId == profileId;
         Profiles.Delete(profileId);
         if (wasActive) ReloadWorking();
@@ -121,10 +168,6 @@ public sealed class KiitouSession
     public string ExportProfile(Guid profileId) => ProfileTransfer.ExportProfile(Config, profileId, _utcNow());
 
     public ImportSummary ImportProfile(string json) => Saved(() => ProfileTransfer.ImportProfile(Config, json, _utcNow()));
-
-    public string ExportCollection() => ProfileTransfer.ExportCollection(Config, _utcNow());
-
-    public ImportSummary ImportCollection(string json) => Saved(() => ProfileTransfer.ImportCollection(Config, json));
 
     // ---- Hosts file --------------------------------------------------------------------
 
@@ -139,7 +182,10 @@ public sealed class KiitouSession
         return result;
     }
 
-    /// <summary>Removes every Kiitou-managed mapping from the hosts file. Saved data is unaffected.</summary>
+    /// <summary>
+    /// Disables the applied profile: removes every Kiitou-managed mapping from the hosts file.
+    /// Saved websites, addresses and profiles are unaffected.
+    /// </summary>
     public HostsOperationResult RemoveAllMappings()
     {
         HostsOperationResult result = _hosts.Apply(_hosts.Preview([], Config.Hosts.LastWrittenSha256));
@@ -150,7 +196,20 @@ public sealed class KiitouSession
     public HostsOperationResult Restore(string backupPath)
     {
         HostsOperationResult result = _hosts.Restore(backupPath);
-        if (result.Succeeded) RecordWrite(result, null);
+        if (!result.Succeeded) return result;
+
+        // If the restored file holds exactly a saved profile's mappings, that profile is applied again.
+        IReadOnlyList<HostsMapping> restored = _hosts.Inspect().Analysis.ManagedMappings;
+        MappingProfile? match = restored.Count == 0
+            ? null
+            : Config.Profiles.OrderByDescending(p => p.Id == Config.ActiveProfileId)
+                .FirstOrDefault(p => Profiles.BuildMappings(p.Id).SequenceEqual(restored));
+        if (match is not null && match.Id != Config.ActiveProfileId)
+        {
+            Profiles.SetActive(match.Id);
+            ReloadWorking();
+        }
+        RecordWrite(result, match?.Id);
         return result;
     }
 
@@ -160,10 +219,17 @@ public sealed class KiitouSession
         {
             IReadOnlyList<HostsMapping> desired = Profiles.BuildMappings(Config.ActiveProfileId);
             HostsApplyPreview preview = _hosts.Preview(desired, Config.Hosts.LastWrittenSha256);
-            bool matches = preview.Analysis.ManagedMappings.SequenceEqual(desired);
+            IReadOnlyList<HostsMapping> managed = preview.Analysis.ManagedMappings;
+            bool matches = managed.SequenceEqual(desired);
+
+            ApplyState state;
+            if (managed.Count == 0) state = ApplyState.NothingApplied;
+            else if (Config.Hosts.LastAppliedProfileId != Config.ActiveProfileId) state = ApplyState.UnknownMappings;
+            else state = managed.SequenceEqual(Working.BuildMappings()) ? ApplyState.Active : ApplyState.ChangesPending;
+
             return new HostsStatus(
-                preview.Analysis.ManagedMappings.Count, matches, preview.ExternalEditDetected,
-                preview.Analysis.BlockDamaged, preview.Conflicts, null);
+                managed.Count, matches, preview.ExternalEditDetected,
+                preview.Analysis.BlockDamaged, preview.Conflicts, null, state);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -242,6 +308,8 @@ public sealed class KiitouSession
     });
 
     public void SetMinimizeToTray(bool enabled) => Saved(() => Config.Settings.MinimizeToTray = enabled);
+
+    public void SetUseQuad9(bool enabled) => Saved(() => Config.Settings.UseQuad9 = enabled);
 
     // ---- Helpers -----------------------------------------------------------------------
 

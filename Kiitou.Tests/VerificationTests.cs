@@ -153,14 +153,52 @@ public class VerificationTests
     }
 
     [Fact]
-    public void NonPublicAddressIsFailedOrUnsafeEvenWhenItConnects()
+    public void PrivateAddressIsJudgedOnItsConnectionWithAWarning()
     {
-        AddressAssessment result = LegitimacyAssessor.Assess(
+        AddressAssessment published = LegitimacyAssessor.Assess(
             Input(Passing("192.168.1.10"), Dns("192.168.1.10"), ip: "192.168.1.10"), Now);
+        AddressAssessment unpublished = LegitimacyAssessor.Assess(
+            Input(Passing("10.0.0.5"), Dns(Published), ip: "10.0.0.5"), Now);
+        var down = new AddressTestResult { Hostname = Host, IpAddress = "10.0.0.5", Error = "The connection attempt timed out." };
+        AddressAssessment unreachable = LegitimacyAssessor.Assess(Input(down, Dns(Published), ip: "10.0.0.5"), Now);
+
+        Assert.Equal(VerificationStatus.ConnectionVerified, published.Status);
+        Assert.Contains(published.Warnings, w => w.Contains("private network address") && w.Contains("only works on your own network"));
+        Assert.Equal(VerificationStatus.ConnectionWorksVerificationIncomplete, unpublished.Status);
+        Assert.Equal(VerificationStatus.FailedOrUnsafe, unreachable.Status);
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1", "loopback")]
+    [InlineData("192.0.2.9", "documentation")]
+    [InlineData("224.0.0.1", "multicast")]
+    [InlineData("::1", "loopback")]
+    public void UnusableAddressIsFailedOrUnsafeEvenWhenItConnects(string ip, string expected)
+    {
+        AddressAssessment result = LegitimacyAssessor.Assess(Input(Passing(ip), Dns(ip), ip: ip), Now);
 
         Assert.Equal(VerificationStatus.FailedOrUnsafe, result.Status);
-        Assert.Contains(result.Reasons, r => r.Contains("private network"));
+        Assert.Contains(result.Reasons, r => r.Contains("Not a usable website address") && r.Contains(expected));
     }
+
+    [Theory]
+    [InlineData("93.184.216.34", AddressScope.Public)]
+    [InlineData("10.1.2.3", AddressScope.Private)]
+    [InlineData("172.20.0.1", AddressScope.Private)]
+    [InlineData("192.168.0.1", AddressScope.Private)]
+    [InlineData("100.64.0.1", AddressScope.Private)]
+    [InlineData("169.254.1.1", AddressScope.Private)]
+    [InlineData("fd00::1", AddressScope.Private)]
+    [InlineData("fe80::1", AddressScope.Private)]
+    [InlineData("::ffff:192.168.0.1", AddressScope.Private)]
+    [InlineData("127.0.0.1", AddressScope.Unusable)]
+    [InlineData("0.0.0.0", AddressScope.Unusable)]
+    [InlineData("203.0.113.1", AddressScope.Unusable)]
+    [InlineData("2001:db8::1", AddressScope.Unusable)]
+    [InlineData("ff02::1", AddressScope.Unusable)]
+    [InlineData("nonsense", AddressScope.Unusable)]
+    public void AddressScopeIsClassified(string ip, AddressScope expected) =>
+        Assert.Equal(expected, IpClassifier.Classify(ip, out _));
 
     [Fact]
     public void FlaggedReputationIsFailedOrUnsafeEvenWhenEverythingElsePasses()
@@ -177,6 +215,9 @@ public class VerificationTests
     public void CleanReputationIsReportedButNeverUpgradesTheStatus()
     {
         var clean = new ReputationResult(ReputationVerdict.NoKnownProblems, "Example Feed", "");
+        var detailed = new ReputationResult(ReputationVerdict.NoKnownProblems, "Quad9", "Quad9 does not list this hostname as malicious.");
+        Assert.Contains("Quad9 does not list this hostname as malicious.",
+            LegitimacyAssessor.Assess(Input(Passing(Candidate), Dns(Candidate), reputation: detailed), Now).Reasons);
         AddressAssessment result = LegitimacyAssessor.Assess(
             Input(Passing(Candidate), Dns(Published), reputation: clean), Now);
 
@@ -248,6 +289,76 @@ public class VerificationTests
         Assert.Equal(ReferenceComparison.NotAvailable, ReferenceComparer.Compare(candidate, null, out _));
         Assert.Equal(ReferenceComparison.NotAvailable,
             ReferenceComparer.Compare(candidate, new AddressTestResult { Hostname = Host, IpAddress = Published }, out _));
+    }
+
+    // ---- Quad9 ------------------------------------------------------------------------
+
+    private sealed class CannedResolver(Func<string, DnsLookupResult> answer) : IDnsResolver
+    {
+        public int Calls { get; private set; }
+
+        public Task<DnsLookupResult> ResolveAsync(string hostname, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(answer(hostname));
+        }
+    }
+
+    private static DnsLookupResult Found(string host) => new(host, ["93.184.216.34"], [], "9.9.9.9", null);
+    private static DnsLookupResult Missing(string host) => new(host, [], [], "9.9.9.9", host + " does not exist in DNS.", true);
+    private static DnsLookupResult Unreachable(string host) => new(host, [], [], null, "No DNS server answered.");
+
+    [Fact]
+    public async Task Quad9ResolvingTheHostnameMeansNoKnownProblemsAndIsCached()
+    {
+        var filtered = new CannedResolver(Found);
+        var unfiltered = new CannedResolver(Found);
+        var quad9 = new Quad9ReputationProvider(filtered, unfiltered, () => Now);
+
+        ReputationResult first = await quad9.CheckAsync(Host, Candidate, CancellationToken.None);
+        ReputationResult second = await quad9.CheckAsync(Host, "104.18.26.120", CancellationToken.None);
+
+        Assert.Equal(ReputationVerdict.NoKnownProblems, first.Verdict);
+        Assert.Equal("Quad9", first.Source);
+        Assert.Same(first, second);
+        Assert.Equal(1, filtered.Calls);
+        Assert.Equal(0, unfiltered.Calls);
+    }
+
+    [Fact]
+    public async Task Quad9BlockingAHostnameThatOtherwiseExistsIsFlagged()
+    {
+        var quad9 = new Quad9ReputationProvider(new CannedResolver(Missing), new CannedResolver(Found), () => Now);
+
+        ReputationResult result = await quad9.CheckAsync(Host, Candidate, CancellationToken.None);
+
+        Assert.Equal(ReputationVerdict.Flagged, result.Verdict);
+        Assert.Contains("blocks this hostname", result.Detail);
+        AddressAssessment assessment = LegitimacyAssessor.Assess(Input(Passing(Candidate), Dns(Candidate), reputation: result), Now);
+        Assert.Equal(VerificationStatus.FailedOrUnsafe, assessment.Status);
+    }
+
+    [Fact]
+    public async Task Quad9NeverReportsCleanWhenItCouldNotAnswer()
+    {
+        var down = new Quad9ReputationProvider(new CannedResolver(Unreachable), new CannedResolver(Found), () => Now);
+        var halfDown = new Quad9ReputationProvider(new CannedResolver(Missing), new CannedResolver(Unreachable), () => Now);
+        var nowhere = new Quad9ReputationProvider(new CannedResolver(Missing), new CannedResolver(Missing), () => Now);
+
+        Assert.Equal(ReputationVerdict.NotChecked, (await down.CheckAsync(Host, Candidate, CancellationToken.None)).Verdict);
+        Assert.Equal(ReputationVerdict.NotChecked, (await halfDown.CheckAsync(Host, Candidate, CancellationToken.None)).Verdict);
+        ReputationResult missing = await nowhere.CheckAsync(Host, Candidate, CancellationToken.None);
+        Assert.Equal(ReputationVerdict.NotChecked, missing.Verdict);
+        Assert.Contains("does not exist", missing.Detail);
+    }
+
+    [Fact]
+    public async Task LiveQuad9CheckOnBuildRunner()
+    {
+        if (Environment.GetEnvironmentVariable("KIITOU_CI") != "1") return;
+        ReputationResult result = await new Quad9ReputationProvider().CheckAsync("example.com", Candidate, CancellationToken.None);
+        // The runner may not be able to reach Quad9; it must never be reported as flagged.
+        Assert.NotEqual(ReputationVerdict.Flagged, result.Verdict);
     }
 
     // ---- Service -----------------------------------------------------------------------

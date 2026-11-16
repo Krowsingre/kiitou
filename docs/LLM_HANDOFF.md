@@ -23,9 +23,9 @@
 
 ## Critical unresolved items
 1. Pass 9 (release verification by a person on a clean Windows machine) has not been done. In particular the Windows elevation prompt has never been accepted or declined by hand.
-2. No license has been chosen.
+2. The user amended Apply behavior and the window size on 2026-11-15; see "Amendments" in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). These override the earlier pass audits where they differ.
 3. No reputation service is named in the specification; none is configured.
-4. Whisper Light maximum-size reference unknown. Ghostblood minimum reference cited as 720x450 and enforced.
+4. Window size is fixed at 1040 x 620, between the 720 x 450 lower reference and Echo Light's 1093 x 622 upper reference.
 5. The concept images, original icon ZIP and MANIFEST.json are still not in the repository; see [ASSET_TRANSFER.md](ASSET_TRANSFER.md). The approved icons and approved UI screenshot are in `assets/`.
 6. No pass gate has been formally closed by the user.
 

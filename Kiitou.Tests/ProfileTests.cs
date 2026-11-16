@@ -260,22 +260,6 @@ public class ProfileTests
         Assert.Empty(target.Profiles[0].Selections);
     }
 
-    [Fact]
-    public void CollectionExportAndImportCarryWebsitesButNoProfile()
-    {
-        var s = new Sample();
-        string json = ProfileTransfer.ExportCollection(s.Config, Now);
-
-        AppConfiguration target = AppConfiguration.CreateDefault();
-        ImportSummary first = ProfileTransfer.ImportCollection(target, json);
-        ImportSummary second = ProfileTransfer.ImportCollection(target, json);
-
-        Assert.Equal((2, 4), (first.WebsitesAdded, first.AddressesAdded));
-        Assert.Equal((0, 0), (second.WebsitesAdded, second.AddressesAdded));
-        Assert.Null(first.Profile);
-        Assert.Single(target.Profiles);
-    }
-
     [Theory]
     [InlineData("", "empty")]
     [InlineData("{ nope", "not valid JSON")]

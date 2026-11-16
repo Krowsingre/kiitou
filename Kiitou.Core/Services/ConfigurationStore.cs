@@ -70,6 +70,7 @@ public sealed class ConfigurationStore
             throw new InvalidDataException("Unrecognized theme selection.");
         config.Hosts ??= new HostsState();
         config.Settings ??= new AppSettings();
+        NormalizeReputationSettings(config.Settings);
         if (config.Websites is null || config.Profiles is null || config.Profiles.Count == 0)
             throw new InvalidDataException("Configuration is missing required collections or profiles.");
         if (config.Websites.Any(w => w is null || w.Hostname is null || w.Addresses is null ||
@@ -111,6 +112,40 @@ public sealed class ConfigurationStore
 
         if (!config.Profiles.Any(x => x.Id == config.ActiveProfileId))
             throw new InvalidDataException("Active profile does not exist.");
+    }
+
+    /// <summary>Repairs reputation settings in place so a damaged entry can never enable a check by accident.</summary>
+    private static void NormalizeReputationSettings(AppSettings settings)
+    {
+        settings.ProtectedKeys ??= [];
+        settings.CustomDns ??= new CustomDnsSettings();
+        settings.CustomDns.Name ??= "";
+        settings.CustomDns.Server ??= "";
+        if (!IpAddressRules.IsNormalized(settings.CustomDns.Server))
+        {
+            settings.CustomDns.Server = "";
+            settings.CustomDns.Enabled = false;
+        }
+
+        settings.KeyServices ??= [];
+        settings.KeyServices.RemoveAll(slot => slot is null);
+        while (settings.KeyServices.Count < 2) settings.KeyServices.Add(new KeyServiceSlot());
+        if (settings.KeyServices.Count > 2) settings.KeyServices.RemoveRange(2, settings.KeyServices.Count - 2);
+        var seen = new HashSet<string>();
+        foreach (KeyServiceSlot slot in settings.KeyServices)
+        {
+            slot.ServiceId ??= "";
+            bool known = Kiitou.Verification.ReputationCatalog.Find(slot.ServiceId) is not null;
+            if (!known || !seen.Add(slot.ServiceId))
+            {
+                slot.ServiceId = "";
+                slot.Enabled = false;
+            }
+            else if (!settings.ProtectedKeys.ContainsKey(slot.ServiceId))
+            {
+                slot.Enabled = false;
+            }
+        }
     }
 
     private static void CheckSelectedAddress(WebsiteEntry website, Guid? addressId, IpFamily family)

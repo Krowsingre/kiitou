@@ -17,7 +17,8 @@ The executable is not code-signed, so Windows SmartScreen may warn about an unkn
 - **Websites and addresses.** Add websites and any number of IPv4 and IPv6 candidates for each.
   Enable one, some, all or none. Disabling a website keeps its addresses and choices.
 - **Profiles.** Create, rename, duplicate, delete, switch, import and export. Edits are held as
-  unsaved changes until you save them to the current profile or to a new one.
+  unsaved changes. **Save** stores them in the profile and leaves you where you are. **Apply**
+  stores them, writes the profile to the hosts file, and returns to Home.
 - **DNS discovery.** Look up the addresses currently published for a website and add the ones
   you choose. Saved addresses are never removed for you.
 - **Testing.** Test one address, all of them, or find the first that works. Tests connect
@@ -78,4 +79,5 @@ has and has not been verified, and `docs/IMPLEMENTATION_STATUS.md` for open deci
 
 ## License
 
-No license has been chosen yet. Until one is added, the code is published for viewing only.
+MIT License with the Commons Clause condition: you may use, copy, modify and share Kiitou
+freely, but you may not sell it or sell a service whose value comes from it. See `LICENSE`.

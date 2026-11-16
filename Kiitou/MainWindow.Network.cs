@@ -9,7 +9,7 @@ using Kiitou.Verification;
 
 namespace Kiitou;
 
-// Discovery & Test and Verification views.
+// Discovery & Test view: DNS discovery, address tests, and the reasons behind each status.
 public partial class MainWindow
 {
     private Guid? _pendingDiscoverySite;
@@ -23,10 +23,10 @@ public partial class MainWindow
     private void OpenDiscovery(Guid? websiteId, bool discover)
     {
         _pendingDiscoverySite = websiteId;
-        ShowView(3);
+        ShowView(DiscoveryView);
         if (websiteId is null)
         {
-            SetMessage("Choose a website, then use the buttons above.");
+            SetMessage("Choose a website, then use the buttons beside it.");
             return;
         }
         if (discover) Discover_Click(this, new RoutedEventArgs());
@@ -47,9 +47,9 @@ public partial class MainWindow
     {
         WebsiteEntry? website = DiscoveryWebsite;
         Guid? keep = (TestGrid.SelectedItem as AddressRow)?.Id;
-        var rows = website?.Addresses.Select(a => BuildAddressRow(website, a)).ToList() ?? [];
+        List<AddressRow> rows = website is null ? [] : website.Addresses.Select(a => BuildAddressRow(website, a)).ToList();
         TestGrid.ItemsSource = rows;
-        TestGrid.SelectedItem = rows.FirstOrDefault(r => r.Id == keep);
+        TestGrid.SelectedItem = rows.FirstOrDefault(r => r.Id == keep) ?? rows.FirstOrDefault();
 
         var discovered = new List<DiscoveredRow>();
         if (website is null)
@@ -69,15 +69,17 @@ public partial class MainWindow
             var saved = website.Addresses.Select(a => a.IpAddress).ToHashSet();
             discovered = _discovery.NewAddresses.Where(a => !saved.Contains(a)).Select(a => new DiscoveredRow { IpAddress = a }).ToList();
             int published = _discovery.Lookup.All.Count();
+            int unpublished = _discovery.SavedButNotPublished.Count;
             DiscoverySummary.Text =
                 $"DNS publishes {published} address{(published == 1 ? "" : "es")} for {website.Hostname}. " +
                 (discovered.Count == 0 ? "All of them are already saved." : $"{discovered.Count} not saved yet:") +
-                (_discovery.SavedButNotPublished.Count > 0
-                    ? $"\n{_discovery.SavedButNotPublished.Count} saved address{(_discovery.SavedButNotPublished.Count == 1 ? " is" : "es are")} not currently published; they are kept."
+                (unpublished > 0
+                    ? $"\n{unpublished} saved address{(unpublished == 1 ? " is" : "es are")} not currently published; kept."
                     : "");
         }
         DiscoveredList.ItemsSource = discovered;
         AddDiscoveredButton.IsEnabled = discovered.Count > 0;
+        RefreshTestDetail();
     }
 
     private void DiscoverySite_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -92,6 +94,40 @@ public partial class MainWindow
         {
             _refreshing = false;
         }
+    }
+
+    private void TestGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_refreshing) RefreshTestDetail();
+    }
+
+    /// <summary>Shows why the selected address has its status.</summary>
+    private void RefreshTestDetail()
+    {
+        if (TestGrid.SelectedItem is not AddressRow row)
+        {
+            TestDetail.Text = "Select an address to see the reasons for its status.";
+            return;
+        }
+        AddressAssessment? assessment = _s.Catalog.Websites
+            .SelectMany(w => w.Addresses).FirstOrDefault(a => a.Id == row.Id)?.LastAssessment;
+        if (assessment is null)
+        {
+            TestDetail.Text = $"{row.IpAddress} for {row.Hostname} has not been tested.";
+            return;
+        }
+
+        var text = new StringBuilder();
+        text.AppendLine($"{LegitimacyAssessor.StatusText(assessment.Status)} — {row.IpAddress}, checked {Local(assessment.AssessedUtc)}");
+        if (LegitimacyAssessor.IsStale(assessment, DateTime.UtcNow))
+            text.AppendLine("This result is more than a day old. Test again for a current answer.");
+        foreach (string reason in assessment.Reasons) text.AppendLine("• " + reason);
+        foreach (string warning in assessment.Warnings) text.AppendLine("• Warning: " + warning);
+        if (assessment.CertificateSubject is not null)
+            text.AppendLine($"Certificate: {assessment.CertificateSubject}; issued by {assessment.CertificateIssuer}; expires {Local(assessment.CertificateNotAfterUtc)}");
+        if (assessment.TotalMilliseconds is double total)
+            text.AppendLine($"Timing: connected in {assessment.ConnectMilliseconds:0} ms, replied in {total:0} ms");
+        TestDetail.Text = text.ToString().TrimEnd();
     }
 
     private WebsiteEntry? RequireDiscoveryWebsite()
@@ -169,8 +205,28 @@ public partial class MainWindow
             return;
         }
         TestGrid.SelectedItem = (TestGrid.ItemsSource as List<AddressRow>)?.FirstOrDefault(r => r.Id == found.Id);
-        Info($"{found.IpAddress} is the first address whose connection works.\n\n" +
-             "It has not been selected or applied. To use it, choose Use Selected Address, save the profile and apply it.");
+        SetMessage($"{found.IpAddress} is the first address whose connection works. It has not been selected; use Use Selected Address to choose it.");
+    }
+
+    /// <summary>Home's "Test Addresses" with no website selected: tests every address of every website.</summary>
+    private async void TestEveryWebsite()
+    {
+        var websites = _s.Catalog.Websites.Where(w => w.Addresses.Count > 0).ToList();
+        if (websites.Count == 0)
+        {
+            Info("There are no addresses to test yet. Add a website and its addresses first.");
+            return;
+        }
+        var progress = new Progress<AddressCandidate>(_ => RefreshAll());
+        await RunBusyAsync("Testing every address...", async token =>
+        {
+            foreach (WebsiteEntry website in websites)
+            {
+                token.ThrowIfCancellationRequested();
+                SetMessage($"Testing addresses for {website.Hostname}...");
+                await _s.VerifyAllAsync(website.Id, progress, token);
+            }
+        });
     }
 
     private void UseSelectedAddress_Click(object sender, RoutedEventArgs e)
@@ -181,112 +237,24 @@ public partial class MainWindow
             return;
         }
         Try(() => ChooseAddress(row.WebsiteId, row.Id));
-        SetMessage($"{row.IpAddress} is now chosen for {row.Hostname} in the current selection. Save and apply the profile to use it.");
+        SetMessage($"{row.IpAddress} is now chosen for {row.Hostname}. Apply the profile to use it.");
     }
 
     private void OpenInBrowser_Click(object sender, RoutedEventArgs e)
     {
         if (RequireDiscoveryWebsite() is not { } website) return;
+        OpenLink("https://" + website.Hostname + "/");
+    }
+
+    private void OpenLink(string target)
+    {
         try
         {
-            Process.Start(new ProcessStartInfo("https://" + website.Hostname + "/") { UseShellExecute = true })?.Dispose();
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true })?.Dispose();
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException)
         {
-            Warn("The browser could not be opened.\n\n" + ex.Message);
+            Warn("It could not be opened.\n\n" + ex.Message);
         }
-    }
-
-    // ---- Verification ------------------------------------------------------------------
-
-    private void RefreshVerification()
-    {
-        Guid? keep = (VerifyGrid.SelectedItem as AddressRow)?.Id;
-        var rows = _s.Catalog.Websites.SelectMany(w => w.Addresses.Select(a => BuildAddressRow(w, a))).ToList();
-        VerifyGrid.ItemsSource = rows;
-        VerifyGrid.SelectedItem = rows.FirstOrDefault(r => r.Id == keep);
-        RefreshVerificationDetail();
-    }
-
-    private void VerifyGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_refreshing) RefreshVerificationDetail();
-    }
-
-    private void RefreshVerificationDetail()
-    {
-        if (VerifyGrid.SelectedItem is not AddressRow row)
-        {
-            VerifyDetail.Text = "Select an address to see the reasons for its status.";
-            return;
-        }
-        AddressAssessment? assessment = _s.Catalog.Websites
-            .SelectMany(w => w.Addresses).FirstOrDefault(a => a.Id == row.Id)?.LastAssessment;
-        if (assessment is null)
-        {
-            VerifyDetail.Text = $"{row.IpAddress} for {row.Hostname} has not been tested.";
-            return;
-        }
-
-        var text = new StringBuilder();
-        text.AppendLine($"{row.IpAddress} for {row.Hostname}");
-        text.AppendLine($"{LegitimacyAssessor.StatusText(assessment.Status)} — checked {Local(assessment.AssessedUtc)}");
-        if (LegitimacyAssessor.IsStale(assessment, DateTime.UtcNow))
-            text.AppendLine("This result is more than a day old. Verify again for a current answer.");
-        text.AppendLine();
-        foreach (string reason in assessment.Reasons) text.AppendLine("• " + reason);
-        if (assessment.Warnings.Count > 0)
-        {
-            text.AppendLine();
-            text.AppendLine("Warnings");
-            foreach (string warning in assessment.Warnings) text.AppendLine("• " + warning);
-        }
-        if (assessment.CertificateSubject is not null)
-        {
-            text.AppendLine();
-            text.AppendLine("Certificate: " + assessment.CertificateSubject);
-            text.AppendLine("Issued by: " + assessment.CertificateIssuer);
-            text.AppendLine("Expires: " + Local(assessment.CertificateNotAfterUtc));
-        }
-        if (assessment.TotalMilliseconds is double total)
-            text.AppendLine($"Timing: connected in {assessment.ConnectMilliseconds:0} ms, replied in {total:0} ms");
-        VerifyDetail.Text = text.ToString().TrimEnd();
-    }
-
-    private async void VerifySelected_Click(object sender, RoutedEventArgs e)
-    {
-        if (VerifyGrid.SelectedItem is not AddressRow row)
-        {
-            Info("Select an address in the table first.");
-            return;
-        }
-        await RunBusyAsync($"Verifying {row.IpAddress}...", token => _s.VerifyAddressAsync(row.WebsiteId, row.Id, null, token));
-    }
-
-    private async void VerifyStale_Click(object sender, RoutedEventArgs e)
-    {
-        DateTime now = DateTime.UtcNow;
-        var pending = _s.Catalog.Websites
-            .Select(w => (Website: w, Addresses: w.Addresses
-                .Where(a => a.LastAssessment is null || LegitimacyAssessor.IsStale(a.LastAssessment, now)).ToList()))
-            .Where(x => x.Addresses.Count > 0).ToList();
-        if (pending.Count == 0)
-        {
-            Info("Every address has a result from the last 24 hours.");
-            return;
-        }
-        await RunBusyAsync("Verifying untested and stale addresses...", async token =>
-        {
-            foreach (var (website, addresses) in pending)
-            {
-                DiscoveryResult discovery = await _s.DiscoverAsync(website.Id, token);
-                foreach (AddressCandidate address in addresses)
-                {
-                    token.ThrowIfCancellationRequested();
-                    await _s.VerifyAddressAsync(website.Id, address.Id, discovery.Lookup, token);
-                    RefreshAll();
-                }
-            }
-        });
     }
 }

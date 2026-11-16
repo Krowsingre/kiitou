@@ -22,7 +22,7 @@ decided.
 | Item | Evidence |
 | --- | --- |
 | Approved original layout | S. **Open:** user's visual sign-off |
-| Not fullscreen; 720 x 450 lower reference | E (window refuses to go below 720 x 450). **Open:** Whisper Light upper reference is unknown; no maximum is enforced |
+| Not fullscreen; between 720 x 450 and Echo Light's 1093 x 622 | E (window opens at 1040 x 620 and refuses to change size), per the user's amendment of 2026-11-15 |
 | Entries, Profiles, Settings and left navigation | E (all seven views opened) |
 | Search and filter, entry statuses, optional tray | S for search, filter and statuses; E for starting with the tray icon on. **Open:** minimizing to and restoring from the tray by hand |
 | Seven icon colors x dark/light = 14; icon changes with color | E (all 14 start and close cleanly), S |
@@ -52,7 +52,7 @@ decided.
 | Save enabled combinations and selected IPs | A |
 | Default profile with none enabled | A |
 | Save to active or new profile; no silent overwrite | A |
-| Switch and apply exact profile mappings | A, E |
+| Switch and apply exact profile mappings | A, E (Apply saves, writes, and returns to Home without a message box) |
 
 ## 6. DNS discovery
 

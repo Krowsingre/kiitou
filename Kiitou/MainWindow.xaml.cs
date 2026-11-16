@@ -20,6 +20,8 @@ public partial class MainWindow : Window
     private static readonly AddressOption NotAssigned = new() { Id = null, Label = "— Not Assigned —" };
 
     private readonly KiitouSession _s;
+    private readonly ReputationSettings _rep;
+    private readonly ReputationHub _hub;
     private readonly StoragePaths _paths;
     private readonly TrayIcon _tray;
     private bool _ready;
@@ -28,21 +30,26 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _cancel;
     private string? _message;
 
-    public MainWindow(KiitouSession session, StoragePaths paths)
+    public MainWindow(KiitouSession session, StoragePaths paths, ReputationSettings reputation, ReputationHub hub)
     {
         _s = session;
         _paths = paths;
+        _rep = reputation;
+        _hub = hub;
         InitializeComponent();
         _tray = new TrayIcon(this);
-        BuildColorChoices();
+        BuildSettingsChoices();
         FilterBox.ItemsSource = HomeFilters;
         FilterBox.SelectedIndex = 0;
-        VerifyCaveat.Text = LegitimacyAssessor.Caveat;
+        TestCaveat.Text = "Tests never touch the hosts file and never select or apply an address. " + LegitimacyAssessor.Caveat;
         ApplyTheme();
         _ready = true;
         RefreshAll();
 
         SourceInitialized += (_, _) => ApplyTitleBar();
+        Loaded += (_, _) => AlignHeader();
+        ContentHost.SizeChanged += (_, _) => AlignHeader();
+        Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnWindowsPreferenceChanged;
         StateChanged += (_, _) =>
         {
             if (WindowState == WindowState.Minimized && _s.Config.Settings.MinimizeToTray) Hide();
@@ -51,6 +58,7 @@ public partial class MainWindow : Window
         {
             _cancel?.Cancel();
             _tray.Dispose();
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnWindowsPreferenceChanged;
         };
     }
 
@@ -123,7 +131,7 @@ public partial class MainWindow : Window
         }
         _busy = true;
         _cancel = new CancellationTokenSource();
-        CancelButton.IsEnabled = CancelButton2.IsEnabled = true;
+        TestBarCancel.IsEnabled = true;
         SetMessage(description);
         string? finished = null;
         try
@@ -147,7 +155,7 @@ public partial class MainWindow : Window
             _busy = false;
             _cancel.Dispose();
             _cancel = null;
-            CancelButton.IsEnabled = CancelButton2.IsEnabled = false;
+            TestBarCancel.IsEnabled = false;
             _message = finished;
             RefreshAll();
         }
@@ -169,7 +177,6 @@ public partial class MainWindow : Window
             RefreshWebsites();
             RefreshProfiles();
             RefreshDiscovery();
-            RefreshVerification();
             RefreshHosts(status);
             RefreshSettings();
             RefreshFooter(status);
@@ -180,23 +187,79 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Sizes the header's right-hand group to the width of the right-hand Settings card, which puts
+    /// the drop-down's right edge on the left card's right edge and keeps every gap at 12.
+    /// </summary>
+    private void AlignHeader()
+    {
+        double half = (ContentHost.ActualWidth - 12) / 2;
+        if (half > 0) HeaderRightHalf.Width = new GridLength(half);
+    }
+
+    /// <summary>In Auto mode the theme follows Windows when its light/dark setting changes.</summary>
+    private void OnWindowsPreferenceChanged(object sender, Microsoft.Win32.UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != Microsoft.Win32.UserPreferenceCategory.General) return;
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (!string.Equals(_s.Config.Theme.Mode, "auto", StringComparison.OrdinalIgnoreCase)) return;
+            bool wasDark = ThemeManager.IsDark;
+            ApplyTheme();
+            if (wasDark != ThemeManager.IsDark) RefreshAll();
+        });
+    }
+
+    private ApplyState _state;
+
     private void RefreshHeader(HostsStatus status)
     {
-        var items = _s.Profiles.Profiles.Select(p => new NamedItem { Id = p.Id, Name = p.Name }).ToList();
+        _state = status.State;
+        bool locked = status.ProfileLocked;
+        var items = _s.Profiles.Profiles.Select(p => new NamedItem
+        {
+            Id = p.Id,
+            Name = locked && p.Id == _s.Config.ActiveProfileId ? p.Name + " (Active)" : p.Name
+        }).ToList();
         ProfilePicker.ItemsSource = items;
         ProfilePicker.SelectedItem = items.FirstOrDefault(i => i.Id == _s.Config.ActiveProfileId);
+        ProfilePicker.IsEnabled = !locked;
+        ProfilePicker.ToolTip = locked
+            ? "This profile is applied. Disable it to choose another."
+            : "Choose the profile to edit and apply";
 
-        bool active = status.MatchesSelectedProfile && status.ManagedMappingCount > 0;
-        bool nothing = status.MatchesSelectedProfile && status.ManagedMappingCount == 0;
-        StateText.Text = active ? "Profile Active" : nothing ? "No Mappings" : "Not Applied";
-        StateGlyph.Text = active ? "" : nothing ? "" : "";
-        Brush brush = active ? B("Success") : nothing ? B("Muted") : B("Warning");
+        // One button: apply the profile, disable it, or apply edits made while it is active.
+        (string text, string glyph, bool accent, string tip) = _state switch
+        {
+            ApplyState.Active => ("Disable Profile", "\uE71A", false,
+                "Remove this profile's mappings from the Windows hosts file and unlock the profile list"),
+            ApplyState.ChangesPending => ("Apply Changes", "\uE768", true,
+                "Save your changes and update the Windows hosts file in one step"),
+            ApplyState.UnknownMappings => ("Disable Profile", "\uE71A", false,
+                "Remove Kiitou's mappings, which match no saved profile, from the Windows hosts file"),
+            _ => ("Apply Profile", "\uE768", true,
+                "Save any changes to the selected profile, write it to the Windows hosts file, and return to Home")
+        };
+        ApplyText.Text = text;
+        ApplyGlyph.Text = glyph;
+        ApplyButton.Style = (Style)FindResource(accent ? "AccentBtn" : "Btn");
+        ApplyButton.Margin = new Thickness(0, 0, 12, 0);
+        ApplyButton.Padding = new Thickness(14, 7, 14, 7);
+        ApplyButton.ToolTip = tip;
+
+        // One badge: lit while the hosts file holds exactly what is on screen, grey otherwise.
+        bool lit = _state == ApplyState.Active;
+        Brush brush = lit ? B("Success") : B("Muted");
         StateText.Foreground = StateGlyph.Foreground = brush;
-        StatePill.ToolTip = active
-            ? "The hosts file contains exactly this profile's saved mappings."
-            : nothing
-                ? "This profile has no enabled mappings and Kiitou manages none in the hosts file."
-                : "The hosts file does not match this profile's saved mappings. Use Apply Selected Profile.";
+        StatePill.BorderBrush = lit ? B("Success") : B("Border");
+        StatePill.Opacity = lit ? 1.0 : 0.55;
+        StatePill.ToolTip = _state switch
+        {
+            ApplyState.Active => "The hosts file contains exactly this profile's mappings.",
+            ApplyState.ChangesPending => "This profile is applied, but your changes are not in the hosts file yet.",
+            ApplyState.UnknownMappings => "Kiitou's mappings in the hosts file match no saved profile.",
+            _ => "No profile is applied."
+        };
     }
 
     private static readonly string[] HomeFilters =
@@ -241,6 +304,16 @@ public partial class MainWindow : Window
         };
     }
 
+    /// <summary>The choices for one address family's drop-down: "none" first, then that family's candidates.</summary>
+    private static List<AddressOption> FamilyOptions(WebsiteEntry website, IpFamily family, string noneLabel)
+    {
+        var options = new List<AddressOption> { new() { Id = null, Label = noneLabel } };
+        options.AddRange(website.Addresses
+            .Where(a => IpAddressRules.FamilyOf(a.IpAddress) == family)
+            .Select(a => new AddressOption { Id = a.Id, Label = a.IpAddress }));
+        return options;
+    }
+
     private void RefreshHome()
     {
         SearchHint.Visibility = SearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -249,22 +322,22 @@ public partial class MainWindow : Window
         foreach (WebsiteEntry website in _s.Catalog.Websites)
         {
             ProfileWebsiteSelection selection = _s.Working.View(website.Id);
-            var options = new List<AddressOption> { NotAssigned };
-            options.AddRange(website.Addresses.Select(a => new AddressOption
-            {
-                Id = a.Id,
-                Label = $"{a.IpAddress} ({IpAddressRules.FamilyOf(a.IpAddress)})"
-            }));
-
             AddressCandidate? v4 = website.Addresses.FirstOrDefault(a => a.Id == selection.SelectedIpv4Id);
             AddressCandidate? v6 = website.Addresses.FirstOrDefault(a => a.Id == selection.SelectedIpv6Id);
             AddressCandidate? shown = v4 ?? v6;
             if (!PassesHomeFilter(website, selection, shown)) continue;
+
+            // A drop-down is shown for each address family the website has candidates for.
+            bool hasV4 = website.Addresses.Any(a => IpAddressRules.FamilyOf(a.IpAddress) == IpFamily.IPv4);
+            bool hasV6 = website.Addresses.Any(a => IpAddressRules.FamilyOf(a.IpAddress) == IpFamily.IPv6);
+            bool both = hasV4 && hasV6;
+            var v4Options = FamilyOptions(website, IpFamily.IPv4,
+                both ? "— No IPv4 address —" : hasV4 ? NotAssigned.Label : "— No addresses yet —");
+            var v6Options = FamilyOptions(website, IpFamily.IPv6, both ? "— No IPv6 address —" : NotAssigned.Label);
+
             string summary = !selection.Enabled
                 ? "Disabled"
-                : shown is null
-                    ? "Enabled, but no address is assigned"
-                    : v4 is not null && v6 is not null ? "Enabled · also IPv6 " + v6.IpAddress : "Enabled";
+                : shown is null ? "Enabled, but no address is assigned" : "Enabled";
             var (text, glyph, brush) = Display(shown?.LastAssessment);
 
             rows.Add(new WebsiteRow
@@ -273,8 +346,12 @@ public partial class MainWindow : Window
                 Hostname = website.Hostname,
                 Summary = summary,
                 Enabled = selection.Enabled,
-                Options = options,
-                Selected = options.FirstOrDefault(o => o.Id == shown?.Id) ?? NotAssigned,
+                Ipv4Options = v4Options,
+                Ipv4Selected = v4Options.FirstOrDefault(o => o.Id == selection.SelectedIpv4Id) ?? v4Options[0],
+                Ipv4Visibility = hasV4 || !hasV6 ? Visibility.Visible : Visibility.Collapsed,
+                Ipv6Options = v6Options,
+                Ipv6Selected = v6Options.FirstOrDefault(o => o.Id == selection.SelectedIpv6Id) ?? v6Options[0],
+                Ipv6Visibility = hasV6 ? Visibility.Visible : Visibility.Collapsed,
                 AddressCount = website.Addresses.Count,
                 StatusText = text,
                 StatusGlyph = glyph,
@@ -287,8 +364,6 @@ public partial class MainWindow : Window
         MappingProfile profile = _s.Profiles.Active;
         CardProfileName.Text = profile.Name;
         bool unsaved = _s.HasUnsavedChanges;
-        CardBadgeText.Text = unsaved ? "Unsaved changes" : "Selected";
-        CardBadgeText.Foreground = CardBadge.BorderBrush = unsaved ? B("Warning") : B("Success");
         CardCounts.Text = $"Websites: {_s.Catalog.Websites.Count} (Enabled: {_s.Working.EnabledCount})";
         CardSaved.Text = "Last Saved: " + Local(profile.LastSavedUtc);
         SaveCurrentButton.IsEnabled = unsaved;
@@ -309,10 +384,20 @@ public partial class MainWindow : Window
             FooterGlyph.Foreground = problem ? B("Warning") : status.ManagedMappingCount > 0 ? B("Success") : B("Muted");
             FooterApplied.Text = "Last Applied: " + Local(_s.Config.Hosts.LastAppliedUtc);
         }
-        FooterMessage.Text = _message ?? "Profile: " + _s.Profiles.Active.Name;
+        string applied = _state switch
+        {
+            ApplyState.Active or ApplyState.ChangesPending => _s.Profiles.Active.Name,
+            ApplyState.UnknownMappings => "mappings that match no saved profile",
+            _ => "none"
+        };
+        FooterMessage.Text = _message ?? "Applied: " + applied;
     }
 
     // ---- Navigation --------------------------------------------------------------------
+
+    private const int HomeView = 0;
+    private const int WebsitesView = 1;
+    private const int DiscoveryView = 3;
 
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -322,7 +407,7 @@ public partial class MainWindow : Window
 
     private void ShowView(int index)
     {
-        UIElement[] views = [ViewHome, ViewWebsites, ViewProfiles, ViewDiscovery, ViewVerification, ViewHosts, ViewSettings];
+        UIElement[] views = [ViewHome, ViewWebsites, ViewProfiles, ViewDiscovery, ViewHosts, ViewSettings];
         for (int i = 0; i < views.Length; i++)
             views[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
         if (Nav.SelectedIndex != index) Nav.SelectedIndex = index;
@@ -349,6 +434,11 @@ public partial class MainWindow : Window
         Try(() => _s.SwitchProfile(profileId));
     }
 
+    /// <summary>
+    /// The header button. With nothing applied it saves any changes to the selected profile, writes
+    /// it to the hosts file and returns to Home. With the profile active it disables it. With edits
+    /// pending on the active profile it saves and applies them in a single write.
+    /// </summary>
     private async void Apply_Click(object sender, RoutedEventArgs e)
     {
         if (_busy)
@@ -356,47 +446,54 @@ public partial class MainWindow : Window
             Info("Please wait for the current operation to finish, or cancel it.");
             return;
         }
+        if (_state is ApplyState.Active or ApplyState.UnknownMappings)
+        {
+            await RunHostsOperationAsync("Disabling the profile...", _s.RemoveAllMappings,
+                _state == ApplyState.Active
+                    ? $"Disabled \"{_s.Profiles.Active.Name}\": its mappings were removed from the hosts file."
+                    : "Kiitou's mappings were removed from the hosts file.");
+            return;
+        }
+
+        string? done = null;
+        bool leaveEditing = false;
         try
         {
-            if (_s.HasUnsavedChanges)
-            {
-                MessageBoxResult answer = MessageBox.Show(this,
-                    $"You have unsaved changes. Apply uses the profile as it was last saved.\n\nSave the changes to \"{_s.Profiles.Active.Name}\" first?",
-                    "Kiitou", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
-                if (answer == MessageBoxResult.Cancel) return;
-                if (answer == MessageBoxResult.Yes) _s.SaveToCurrentProfile();
-            }
+            if (_s.HasUnsavedChanges) _s.SaveToCurrentProfile();
 
             HostsApplyPreview preview = _s.PreviewApply();
+            if (preview.Desired.Count == 0 && preview.Analysis.ManagedMappings.Count == 0)
+            {
+                Info($"\"{_s.Profiles.Active.Name}\" has no enabled website with an address assigned, so there is nothing to apply.");
+                return;
+            }
             if (!preview.ChangeNeeded)
             {
-                Info("The hosts file already contains exactly this profile's mappings. Nothing needs to change.");
+                leaveEditing = true;
+                done = $"\"{_s.Profiles.Active.Name}\" is saved and already applied.";
                 return;
             }
 
-            var notes = new List<string>
-            {
-                $"Kiitou will write {preview.Desired.Count} mapping{(preview.Desired.Count == 1 ? "" : "s")} for \"{_s.Profiles.Active.Name}\" to the Windows hosts file.",
-                "A backup is made first. Lines Kiitou does not manage are left exactly as they are."
-            };
+            // Ask only when there is something the user needs to know before the file is written.
+            var warnings = new List<string>();
             if (preview.ExternalEditDetected)
-                notes.Add("NOTE: The hosts file was changed outside Kiitou since Kiitou last wrote it. Those changes will be kept.");
+                warnings.Add("The hosts file was changed outside Kiitou since Kiitou last wrote it. Those changes will be kept.");
             if (preview.Analysis.BlockDamaged)
-                notes.Add("NOTE: Kiitou's section markers in the hosts file were altered. Only Kiitou's own tagged lines will be replaced.");
+                warnings.Add("Kiitou's section markers in the hosts file were altered. Only Kiitou's own tagged lines will be replaced.");
             foreach (HostsConflict conflict in preview.Conflicts)
-                notes.Add($"CONFLICT: line {conflict.Existing.LineNumber} already maps {conflict.Existing.Hostname} to {conflict.Existing.IpAddress}. Windows uses the first entry, so that line will take precedence over {conflict.Desired.IpAddress} until you remove it yourself.");
+                warnings.Add($"Line {conflict.Existing.LineNumber} of the hosts file already maps {conflict.Existing.Hostname} to {conflict.Existing.IpAddress}. Windows uses the first entry, so that line will win over {conflict.Desired.IpAddress} until you remove it yourself.");
             foreach (SelectionIssue issue in new SelectionEditor(_s.Config, _s.Profiles.Active.Selections).FindIssues())
-                notes.Add("NOTE: " + issue.Message);
-            notes.Add(Environment.IsPrivilegedProcess
-                ? "Continue?"
-                : "Windows will ask for administrator permission. Continue?");
-            if (!Confirm(string.Join("\n\n", notes))) return;
+                warnings.Add(issue.Message);
+            if (warnings.Count > 0 && !Confirm(string.Join("\n\n", warnings) + "\n\nApply anyway?")) return;
 
             _busy = true;
             SetMessage("Applying profile to the hosts file...");
             HostsOperationResult result = await Task.Run(() => _s.Apply(preview));
             _busy = false;
-            ReportHostsOutcome(result, "The profile was applied.");
+            int count = preview.Desired.Count;
+            done = ReportHostsOutcome(result,
+                $"Applied \"{_s.Profiles.Active.Name}\": {count} mapping{(count == 1 ? "" : "s")} written to the hosts file.");
+            leaveEditing = result.Succeeded;
         }
         catch (CatalogException ex)
         {
@@ -409,33 +506,37 @@ public partial class MainWindow : Window
         finally
         {
             _busy = false;
-            _message = null;
+            if (leaveEditing) ShowView(HomeView);
+            _message = done;
             RefreshAll();
         }
     }
 
-    private void ReportHostsOutcome(HostsOperationResult result, string successText)
+    /// <summary>
+    /// Explains a failed or partly successful hosts-file change in a message box. A plain success
+    /// needs no box; its text is returned for the status footer.
+    /// </summary>
+    private string? ReportHostsOutcome(HostsOperationResult result, string successText)
     {
         switch (result.Outcome)
         {
             case HostsWriteOutcome.Success:
-                Info(successText);
-                break;
+                return successText;
             case HostsWriteOutcome.SuccessFlushFailed:
                 Warn(successText + "\n\nThe Windows DNS cache could not be cleared, so the change may take a few minutes to take effect. Restarting your browser usually helps.");
-                break;
+                return successText;
             case HostsWriteOutcome.Cancelled:
                 Info("Administrator permission was not given. The hosts file was not changed.");
-                break;
+                return "The hosts file was not changed.";
             case HostsWriteOutcome.HostsChanged:
                 Warn("The hosts file was changed by something else while Kiitou was preparing. Nothing was written. Please try again.");
-                break;
+                return null;
             case HostsWriteOutcome.VerifyFailed:
                 Warn("The hosts file does not contain what Kiitou tried to write. Security software may have blocked or reverted the change. A backup of the previous file is in Kiitou's backup folder.");
-                break;
+                return null;
             default:
                 Warn("The hosts file could not be written. Security software may be blocking changes to it. Nothing was changed.");
-                break;
+                return null;
         }
     }
 
@@ -497,30 +598,24 @@ public partial class MainWindow : Window
         if (_refreshing || sender is not ComboBox { DataContext: WebsiteRow row } combo) return;
         if (!combo.IsDropDownOpen && !combo.IsKeyboardFocusWithin) return;
         if (combo.SelectedItem is not AddressOption option) return;
-        Dispatcher.InvokeAsync(() => Try(() => ChooseAddress(row.Id, option.Id)));
+        IpFamily family = (string)combo.Tag == "IPv6" ? IpFamily.IPv6 : IpFamily.IPv4;
+        Dispatcher.InvokeAsync(() => Try(() => _s.Working.SelectAddress(row.Id, family, option.Id)));
     }
 
-    /// <summary>Home's single drop-down: picks the address for its own family, or clears both families.</summary>
-    private void ChooseAddress(Guid websiteId, Guid? addressId)
+    /// <summary>Chooses an address as the active one for its own family.</summary>
+    private void ChooseAddress(Guid websiteId, Guid addressId)
     {
-        if (addressId is not Guid id)
-        {
-            _s.Working.SelectAddress(websiteId, IpFamily.IPv4, null);
-            _s.Working.SelectAddress(websiteId, IpFamily.IPv6, null);
-            return;
-        }
-        AddressCandidate address = _s.Catalog.Get(websiteId).Addresses.First(a => a.Id == id);
-        _s.Working.SelectAddress(websiteId, WebsiteCatalog.FamilyOf(address), id);
-    }
-
-    private void HomeMore_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: WebsiteRow row }) OpenWebsite(row.Id);
+        AddressCandidate address = _s.Catalog.Get(websiteId).Addresses.First(a => a.Id == addressId);
+        _s.Working.SelectAddress(websiteId, WebsiteCatalog.FamilyOf(address), addressId);
     }
 
     private void HomeDiscover_Click(object sender, RoutedEventArgs e) => OpenDiscovery(HomeSelection?.Id, discover: true);
 
-    private void HomeTest_Click(object sender, RoutedEventArgs e) => OpenDiscovery(HomeSelection?.Id, discover: false);
+    private void HomeTest_Click(object sender, RoutedEventArgs e)
+    {
+        if (HomeSelection is { } row) OpenDiscovery(row.Id, discover: false);
+        else TestEveryWebsite();
+    }
 
     private void SaveCurrent_Click(object sender, RoutedEventArgs e) => Try(() => _s.SaveToCurrentProfile());
 

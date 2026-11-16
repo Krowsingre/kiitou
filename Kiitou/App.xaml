@@ -98,7 +98,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="6"/>
-                <Setter Property="Padding" Value="10"/>
+                <Setter Property="Padding" Value="14,10,14,12"/>
             </Style>
 
             <!-- Check box -->
@@ -181,6 +181,9 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsKeyboardFocused" Value="True">
                                     <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.55"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -418,6 +421,110 @@
                         <Setter Property="Template" Value="{StaticResource HorizontalScroll}"/>
                     </Trigger>
                 </Style.Triggers>
+            </Style>
+
+            <!-- On/off switch -->
+            <Style x:Key="Switch" TargetType="CheckBox">
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Width" Value="40"/>
+                <Setter Property="Height" Value="22"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="Track" CornerRadius="11" Background="{DynamicResource Border}">
+                                <Ellipse x:Name="Knob" Width="16" Height="16" Fill="#FFFFFF" HorizontalAlignment="Left" Margin="3,0,3,0"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource Accent}"/>
+                                    <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Text}"/>
+                                    <Setter TargetName="Track" Property="BorderThickness" Value="1"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.45"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Masked text box for keys -->
+            <Style TargetType="PasswordBox">
+                <Setter Property="Background" Value="{DynamicResource Control}"/>
+                <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource Text}"/>
+                <Setter Property="SelectionBrush" Value="{DynamicResource Accent}"/>
+                <Setter Property="Padding" Value="6,4"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="PasswordBox">
+                            <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="4">
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.55"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Text that behaves as a link -->
+            <Style x:Key="LinkBtn" TargetType="Button">
+                <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <TextBlock x:Name="Label" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                       TextDecorations="Underline" Background="Transparent"/>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource AccentHover}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Small icon-only toggle (show or hide a key) -->
+            <Style x:Key="EyeToggle" TargetType="ToggleButton">
+                <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border Background="Transparent" Padding="6,0">
+                                <TextBlock FontFamily="{StaticResource IconFont}" FontSize="13" Text="&#xE7B3;"
+                                           Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="CardTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="16"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Margin" Value="0,0,0,6"/>
             </Style>
 
             <Style TargetType="ToolTip">

@@ -17,7 +17,7 @@ public class ConfigurationStoreTests
         Assert.True(File.Exists(dir.File("config.json")));
         Assert.Equal(1, config.SchemaVersion);
         Assert.Equal("purple", config.Theme.Color);
-        Assert.Equal("dark", config.Theme.Mode);
+        Assert.Equal("auto", config.Theme.Mode);
         Assert.Empty(config.Websites);
         var profile = Assert.Single(config.Profiles);
         Assert.Equal("Default", profile.Name);
