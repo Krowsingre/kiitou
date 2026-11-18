@@ -52,10 +52,6 @@ Name: "{autodesktop}\Kiitou"; Filename: "{app}\Kiitou.exe"; Tasks: desktopicon
 ; A quiet install started with /LAUNCH=0 does not start Kiitou.
 Filename: "{app}\Kiitou.exe"; Description: "Start Kiitou"; Flags: nowait postinstall; Check: ShouldLaunch
 
-[UninstallRun]
-; If Kiitou's mappings are still in the hosts file, Kiitou offers to remove them first.
-Filename: "{app}\Kiitou.exe"; Parameters: "--uninstall-cleanup"; RunOnceId: "KiitouHostsCleanup"; Flags: waituntilterminated; Check: not UninstallSilent
-
 [Code]
 function ShouldLaunch: Boolean;
 begin
@@ -64,10 +60,18 @@ end;
 
 // The user chooses, each time Kiitou is uninstalled, whether their settings are removed too.
 // A quiet uninstall keeps them.
+//
+// Before files are removed, an interactive uninstall lets Kiitou offer to take its mappings out
+// of the hosts file. (This is done here rather than in [UninstallRun], whose conditions are
+// evaluated during Setup, where UninstallSilent cannot be called.)
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
+  ResultCode: Integer;
 begin
+  if (CurUninstallStep = usUninstall) and (not UninstallSilent) and FileExists(ExpandConstant('{app}\Kiitou.exe')) then
+    Exec(ExpandConstant('{app}\Kiitou.exe'), '--uninstall-cleanup', '', SW_SHOW, ewWaitUntilTerminated, ResultCode);
+
   if CurUninstallStep = usPostUninstall then
   begin
     DataDir := ExpandConstant('{localappdata}\Kiitou');

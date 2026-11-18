@@ -77,10 +77,22 @@ function Stop-StrayKiitou {
     }
 }
 
+# A quiet install hides error boxes and carries on, so the setup log is searched for them.
+function Assert-CleanLog([string]$logName, [string]$what) {
+    $log = Join-Path $logs $logName
+    if (-not (Test-Path $log)) { throw "$what wrote no log" }
+    $problems = @(Select-String -Path $log -Pattern "Internal error|Expression error|Exception message|Runtime error" -SimpleMatch:$false)
+    if ($problems.Count -gt 0) {
+        Show-Diagnostics $what
+        throw "$what reported errors: $(($problems | ForEach-Object { $_.Line.Trim() }) -join ' | ')"
+    }
+}
+
 function Install-Kiitou([string]$what, [string]$logName) {
     Invoke-Bounded $Setup @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LAUNCH=0", "/LOG=`"$(Join-Path $logs $logName)`"") 240 $what
     Start-Sleep -Seconds 2
     Stop-StrayKiitou
+    Assert-CleanLog $logName $what
 }
 
 function Start-And-Close-Kiitou {
@@ -129,6 +141,8 @@ if (-not $uninstaller) { throw "No uninstaller was installed" }
 # The uninstaller hands over to a temporary copy of itself and returns at once, so wait for the result.
 Invoke-Bounded $uninstaller.FullName @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/LOG=`"$(Join-Path $logs 'uninstall.log')`"") 120 "Uninstall"
 Wait-Until { -not (Test-Path $exe) } "Kiitou.exe to be removed" 120
+Wait-Until { Test-Path (Join-Path $logs 'uninstall.log') } "the uninstall log" 30
+Assert-CleanLog 'uninstall.log' "Uninstall"
 if (Test-Path $shortcut) { throw "The Start menu shortcut was left behind" }
 if (-not (Test-Path $config)) { throw "A quiet uninstall removed the user's settings; it should keep them" }
 Write-Host "  program removed; settings kept (a quiet uninstall never asks, so it keeps them)"
