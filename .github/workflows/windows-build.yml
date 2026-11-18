@@ -85,9 +85,10 @@ jobs:
 
       - name: Test the installer
         shell: pwsh
+        timeout-minutes: 15
         run: |
           $version = (Get-Content version.txt -Raw).Trim()
-          ./.github/scripts/installer-test.ps1 -Setup "out-installer/Kiitou-Setup-$version.exe" -Version $version
+          ./.github/scripts/installer-test.ps1 -Setup "out-installer/Kiitou-Setup-$version.exe" -Version $version -ShotDir shots
 
       - name: Upload smoke test screenshots
         if: always()
