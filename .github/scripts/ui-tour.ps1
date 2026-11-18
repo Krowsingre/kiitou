@@ -254,6 +254,8 @@ Start-Sleep -Milliseconds 600
 Assert-Alive $p "dragging a menu item"
 $order = Get-NavOrder $p
 if ($order[0] -ne "NavSettings") { Save-Shot $p "failure"; throw "Dragging Settings to the top did not move it (order: $($order -join ', '))" }
+$shown = Find-ById $p "TrayOption"
+if ($null -eq $shown -or $shown.Current.IsOffscreen) { Save-Shot $p "failure"; throw "After dragging Settings, its page should still be shown" }
 Save-Shot $p "menu-reordered"
 $savedOrder = (Get-Content $configPath -Raw | ConvertFrom-Json).Settings.NavOrder
 if ($savedOrder[0] -ne "settings") { throw "The new menu order was not saved (saved: $($savedOrder -join ', '))" }

@@ -58,10 +58,13 @@ public partial class MainWindow
             return;
         }
         Point now = e.GetPosition(Nav);
+        // While dragging, the list must not select the items the pointer passes over.
+        if (_draggingNav) e.Handled = true;
         if (!_draggingNav)
         {
             if (Math.Abs(now.Y - _pressedAt.Y) < SystemParameters.MinimumVerticalDragDistance) return;
             _draggingNav = true;
+            e.Handled = true;
             _pressedItem.Opacity = 0.6;
             Nav.CaptureMouse();
         }
@@ -114,8 +117,17 @@ public partial class MainWindow
     private void FinishNavDrag()
     {
         _draggingNav = false;
-        if (_pressedItem is not null) _pressedItem.Opacity = 1;
+        ListBoxItem? dragged = _pressedItem;
+        if (dragged is not null) dragged.Opacity = 1;
         _pressedItem = null;
+        // The page shown is the one that was dragged (pressing an item opens it).
+        if (dragged is { Tag: string page } && page != _currentView) ShowView(page);
+        else if (dragged is not null && !ReferenceEquals(Nav.SelectedItem, dragged))
+        {
+            _reorderingNav = true;
+            Nav.SelectedItem = dragged;
+            _reorderingNav = false;
+        }
         if (Mouse.Captured == Nav) Nav.ReleaseMouseCapture();
 
         var order = Nav.Items.OfType<ListBoxItem>().Select(i => (string)i.Tag).ToList();
