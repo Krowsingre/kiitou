@@ -612,9 +612,12 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="Updates" Style="{StaticResource CardTitle}" VerticalAlignment="Center"/>
-                                    <Button x:Name="UpdateButton" Grid.Column="1" Content="Check for Updates" Margin="0,0,0,4"
-                                            Padding="10,2" MinHeight="24" VerticalAlignment="Top" Click="UpdateButton_Click"/>
+                                    <!-- The button sits on the heading row, apart from the switch column. -->
+                                    <DockPanel Grid.ColumnSpan="2" Margin="0,0,0,4">
+                                        <Button x:Name="UpdateButton" DockPanel.Dock="Right" Content="Check for Updates" Margin="0"
+                                                Padding="10,2" MinHeight="24" VerticalAlignment="Top" Click="UpdateButton_Click"/>
+                                        <TextBlock Text="Updates" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
+                                    </DockPanel>
                                     <TextBlock x:Name="UpdateStatus" Grid.Row="1" Grid.ColumnSpan="2" Foreground="{DynamicResource Muted}"
                                                TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
                                     <TextBlock Grid.Row="2" Text="Look for updates when Kiitou opens" VerticalAlignment="Center"/>
