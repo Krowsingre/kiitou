@@ -23,8 +23,13 @@ this repository's GitHub releases, the same way The Bound Vigil does.
 - Installing downloads the setup program from this repository's releases only, and **checks its
   signature against the public key built into Kiitou**. A file that is not signed with the
   update-signing key is deleted and never run.
-- The setup program then runs quietly, replaces Kiitou, and opens it again. Settings, profiles and
-  hosts-file backups are untouched; they live in `%LOCALAPPDATA%\Kiitou`.
+- Kiitou first saves a safety copy of the settings, then hands over to the **update window**: a
+  temporary copy of Kiitou that opens in the same place, shows a picture of Kiitou, downloads and
+  checks the update, runs the setup program quietly, and opens the new Kiitou. Settings, profiles,
+  the test log and hosts-file backups are untouched; they live in `%LOCALAPPDATA%\Kiitou`.
+- If the settings format changes in a new version, older settings are converted when it first
+  opens (see `Kiitou.Core/Services/ConfigurationMigrations.cs`). Every released format must stay
+  convertible, with a test that loads it.
 
 ## The update-signing key (one-time setup)
 

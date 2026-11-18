@@ -93,10 +93,36 @@ the pass audits, **this file wins**.
   is one line in About, with an Open Folder link.
 - See `RELEASING.md` for how releases are made and how the signing key is set up.
 
+### Network, menu, updating in place, data safety (approved 2026-11-18, Kiitou 0.9.2)
+- **Network page** (new, between Profiles and Hosts File): where tests appear to come from (public
+  address and country, found by asking Cloudflare, no account), an optional **SOCKS5 test proxy**
+  used only by Kiitou's tests (for example Tor Browser on 127.0.0.1:9150; password encrypted;
+  locked while switched on), and a **test log** recording every test with where it came from,
+  filterable by website and location. This amends the exclusion "No VPN, proxy … is required":
+  none is required, but tests may now use one.
+- Kiitou does **not** act as a VPN or Tor. It cannot change which catalogue a streaming service
+  shows; that depends on where the user appears to be, not on which server address is chosen.
+- **Menu order:** Home, Websites, Discovery & Test, Profiles, Network, Hosts File, Settings by
+  default. Items can be dragged into any order, which is saved. It is not announced and there is
+  no reset.
+- **Updating in place:** a temporary copy of Kiitou opens an update window in the same size and
+  place, showing a blurred picture of Kiitou with a progress card (downloading, installing,
+  starting; Try Again / Open Kiitou on failure), installs the signed update and reopens Kiitou.
+  The window position is remembered.
+- **Uninstall Kiitou…** in Settings > About starts the normal uninstaller.
+- **Settings format conversion:** settings carry a format number (now 2). Older formats are
+  converted on load, after a safety copy of the original; a newer format is refused and left
+  untouched.
+- **Safety copy of the settings before every update**, in `%LOCALAPPDATA%\Kiitou\config-backups`,
+  keeping the newest 10.
+- **Update leftovers** are deleted on the next start and by the uninstaller.
+
 ### Not verified
 - AbuseIPDB and VirusTotal were tested only against simulated replies; no account was available.
 - Auto mode following a live change of the Windows setting was not exercised on the build runner.
-- An update installed end to end from a real release: it needs the signing key secret and a
-  second published version.
+- An update downloaded from a real release and installed end to end. The build tests the whole
+  update window with a signed setup program on disk, and the download separately; together they
+  cover it, but the first real update from 0.9.1 to 0.9.2 is the first full run.
+- Through a real Tor or VPN proxy. The SOCKS5 client is tested against a stand-in proxy.
 - The uninstaller's two questions (delete settings; remove hosts mappings) are interactive and
   were not driven; the quiet uninstall path was tested.
