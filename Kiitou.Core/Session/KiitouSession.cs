@@ -311,6 +311,13 @@ public sealed class KiitouSession
 
     public void SetUseQuad9(bool enabled) => Saved(() => Config.Settings.UseQuad9 = enabled);
 
+    /// <summary>Installing updates by themselves only applies while Kiitou looks for them.</summary>
+    public void SetUpdateOptions(bool checkUpdates, bool autoInstall) => Saved(() =>
+    {
+        Config.Settings.CheckUpdates = checkUpdates;
+        Config.Settings.AutoInstallUpdates = checkUpdates && autoInstall;
+    });
+
     // ---- Helpers -----------------------------------------------------------------------
 
     private void ReloadWorking() =>

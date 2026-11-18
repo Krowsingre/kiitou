@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         FilterBox.SelectedIndex = 0;
         TestCaveat.Text = "Tests never touch the hosts file and never select or apply an address. " + LegitimacyAssessor.Caveat;
         ApplyTheme();
+        StartUpdates();
         _ready = true;
         RefreshAll();
 

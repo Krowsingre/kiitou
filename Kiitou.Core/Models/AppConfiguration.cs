@@ -38,6 +38,10 @@ public sealed class AppSettings
     public bool MinimizeToTray { get; set; }
     /// <summary>Ask Quad9 whether it lists a website's hostname as malicious. Sends the hostname to Quad9.</summary>
     public bool UseQuad9 { get; set; } = true;
+    /// <summary>Ask GitHub for a newer version a few seconds after Kiitou opens.</summary>
+    public bool CheckUpdates { get; set; } = true;
+    /// <summary>Install a newer version found at startup without asking. Needs <see cref="CheckUpdates"/>.</summary>
+    public bool AutoInstallUpdates { get; set; }
     /// <summary>The two rows for key-based reputation services.</summary>
     public List<KeyServiceSlot> KeyServices { get; set; } = [new(), new()];
     /// <summary>API keys by service, encrypted for the signed-in Windows user. Never exported.</summary>

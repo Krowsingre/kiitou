@@ -600,19 +600,47 @@
                                 <ColumnDefinition Width="12"/>
                                 <ColumnDefinition Width="9*"/>
                             </Grid.ColumnDefinitions>
-                            <Border x:Name="StorageCard" Style="{StaticResource Card}">
-                                <StackPanel>
-                                    <TextBlock Text="Storage" Style="{StaticResource CardTitle}"/>
-                                    <TextBlock x:Name="StorageText" Style="{StaticResource MutedText}"/>
-                                    <TextBlock x:Name="StorageFolder" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock x:Name="StorageBackups" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
+                            <Border x:Name="UpdatesCard" Style="{StaticResource Card}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="Updates" Style="{StaticResource CardTitle}" VerticalAlignment="Center"/>
+                                    <Button x:Name="UpdateButton" Grid.Column="1" Content="Check for Updates" Margin="0,0,0,4"
+                                            Padding="10,2" MinHeight="24" VerticalAlignment="Top" Click="UpdateButton_Click"/>
+                                    <TextBlock x:Name="UpdateStatus" Grid.Row="1" Grid.ColumnSpan="2" Foreground="{DynamicResource Muted}"
+                                               TextTrimming="CharacterEllipsis" Margin="0,0,0,4"/>
+                                    <TextBlock Grid.Row="2" Text="Look for updates when Kiitou opens" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="UpdateCheckOption" Grid.Row="2" Grid.Column="1" Style="{StaticResource Switch}"
+                                              HorizontalAlignment="Right" Margin="0,0,0,4" Click="UpdateCheckOption_Click"
+                                              ToolTip="Look for updates when Kiitou opens"/>
+                                    <TextBlock Grid.Row="3" Text="Install updates by themselves" VerticalAlignment="Center"/>
+                                    <CheckBox x:Name="UpdateAutoOption" Grid.Row="3" Grid.Column="1" Style="{StaticResource Switch}"
+                                              HorizontalAlignment="Right" Click="UpdateAutoOption_Click"
+                                              ToolTip="Install updates by themselves when Kiitou opens"/>
+                                </Grid>
                             </Border>
                             <Border x:Name="AboutCard" Grid.Column="2" Style="{StaticResource Card}">
                                 <StackPanel>
-                                    <TextBlock Text="About" Style="{StaticResource CardTitle}"/>
-                                    <TextBlock x:Name="AboutVersion" FontWeight="SemiBold" Margin="0,0,0,1"/>
+                                    <DockPanel>
+                                        <TextBlock x:Name="AboutVersion" DockPanel.Dock="Right" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="About" Style="{StaticResource CardTitle}"/>
+                                    </DockPanel>
                                     <TextBlock x:Name="AboutText" Style="{StaticResource MutedText}" FontSize="11.5"/>
+                                    <DockPanel Margin="0,4,0,0">
+                                        <Button x:Name="OpenDataFolder" DockPanel.Dock="Right" Style="{StaticResource LinkBtn}" Content="Open Folder"
+                                                Margin="12,0,0,0" FontSize="11.5" Click="OpenDataFolder_Click"/>
+                                        <TextBlock x:Name="StoragePath" Foreground="{DynamicResource Muted}" FontSize="11.5"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
                                 </StackPanel>
                             </Border>
                         </Grid>

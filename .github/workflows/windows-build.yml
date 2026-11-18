@@ -9,7 +9,8 @@ on:
       - 'Kiitou.Tests/**'
       - 'assets/**'
       - '.github/**'
-      - 'release-tag.txt'
+      - 'installer/**'
+      - 'version.txt'
       - 'LICENSE'
   workflow_dispatch:
 
@@ -71,6 +72,23 @@ jobs:
         shell: powershell
         run: ./.github/scripts/ui-tour.ps1 -Exe out/Kiitou.exe -ShotDir shots
 
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content version.txt -Raw).Trim()
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup is not available" }
+          & $iscc /Qp "/DAppVersion=$version" installer\Kiitou.iss
+          if ($LASTEXITCODE -ne 0) { throw "The installer could not be built" }
+          Get-Item "out-installer/Kiitou-Setup-$version.exe" | Select-Object Name, Length
+
+      - name: Test the installer
+        shell: pwsh
+        run: |
+          $version = (Get-Content version.txt -Raw).Trim()
+          ./.github/scripts/installer-test.ps1 -Setup "out-installer/Kiitou-Setup-$version.exe" -Version $version
+
       - name: Upload smoke test screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,20 +97,17 @@ jobs:
           path: shots
           if-no-files-found: ignore
 
-      - name: Publish direct EXE release
+      - name: Keep the installer from this build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kiitou-setup
+          path: out-installer/*.exe
+          if-no-files-found: error
+
+      - name: Publish the release
         if: github.ref == 'refs/heads/main'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = (Get-Content release-tag.txt -Raw).Trim()
-          if ($tag -notmatch '^pass-[1-9][0-9]*$') { throw "Invalid release tag" }
-          $existing = gh release list --limit 100 --json tagName | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { throw "Unable to list GitHub releases" }
-          # Recreate the release so its tag always points at the commit the EXE was built from.
-          if ($existing | Where-Object { $_.tagName -eq $tag }) {
-            gh release delete $tag --cleanup-tag --yes
-            if ($LASTEXITCODE -ne 0) { throw "Unable to replace the existing GitHub release" }
-          }
-          gh release create $tag out/Kiitou.exe --target ${{ github.sha }} --title "Kiitou $tag (development build)" --notes "Development-phase executable built from commit ${{ github.sha }}." --prerelease
-          if ($LASTEXITCODE -ne 0) { throw "GitHub release publishing failed" }
+          SIGNING_KEY: ${{ secrets.KIITOU_UPDATE_SIGNING_KEY }}
+        run: ./.github/scripts/publish-release.ps1 -Commit ${{ github.sha }}

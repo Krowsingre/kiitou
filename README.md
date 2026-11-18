@@ -8,9 +8,13 @@ It is a single `Kiitou.exe`. There is no installer, account, server or backgroun
 
 ## Download
 
-Development builds are published on the
-[Releases page](https://github.com/Krowsingre/kiitou/releases) as a single `Kiitou.exe`.
-The executable is not code-signed, so Windows SmartScreen may warn about an unknown publisher.
+Download `Kiitou-Setup-<version>.exe` from the
+[Releases page](https://github.com/Krowsingre/kiitou/releases) and run it. It installs Kiitou for
+your Windows account only, so it does not need administrator rights. The setup program is not
+code-signed, so Windows SmartScreen may warn about an unknown publisher.
+
+Kiitou checks for new versions itself and installs them on request (Settings > Updates). It only
+installs an update signed with Kiitou's own update key.
 
 ## What it does
 
@@ -54,8 +58,8 @@ Kiitou is provided as is, without warranty of any kind. You use it at your own r
 
 ## Where settings are stored
 
-`config.json` and a `backups` folder are created beside `Kiitou.exe` when that folder can be
-written to. Otherwise they go to `%LOCALAPPDATA%\Kiitou`. The Settings page shows which.
+Settings, profiles and hosts-file backups are in `%LOCALAPPDATA%\Kiitou`, separate from the
+program. Uninstalling asks whether to delete them too.
 
 ## Build
 
@@ -66,12 +70,15 @@ dotnet test .\Kiitou.Tests\Kiitou.Tests.csproj -c Release
 dotnet run --project .\Kiitou\Kiitou.csproj
 ```
 
-Every push is built and tested on GitHub Actions. Builds of `main` are published as releases.
+Every push is built and tested on GitHub Actions, including installing, reinstalling and
+uninstalling the setup program. A new version is published when `version.txt` changes on `main`;
+see `docs/RELEASING.md`.
 
 | Folder | Contents |
 | --- | --- |
 | `Kiitou` | The WPF application |
-| `Kiitou.Core` | Hosts engine, websites, profiles, DNS, testing, verification, session |
+| `Kiitou.Core` | Hosts engine, websites, profiles, DNS, testing, verification, updates, session |
+| `installer` | The Inno Setup script for the setup program |
 | `Kiitou.Tests` | Automated tests |
 | `assets` | Approved icons and the approved UI screenshot |
 | `docs` | Specification, plan, per-pass audits and the verification matrix |

@@ -203,19 +203,15 @@ public partial class MainWindow
         for (int slot = 0; slot < ReputationSettings.KeySlotCount; slot++) RefreshSlot(slot);
         RefreshCustomDns();
 
-        StorageText.Text = _paths.Portable
-            ? "Portable: settings are stored beside Kiitou.exe."
-            : "Settings are stored in your local application data.";
-        StorageFolder.Text = "Settings folder: " + _paths.DataDirectory;
-        StorageFolder.ToolTip = _paths.DataDirectory;
-        StorageBackups.Text = "Hosts file backups: " + _s.Backups.Directory;
-        StorageBackups.ToolTip = _s.Backups.Directory;
+        StoragePath.Text = "Settings and backups: " + _paths.DataDirectory;
+        StoragePath.ToolTip = _paths.DataDirectory;
 
         AboutVersion.Text = "Kiitou " + (typeof(MainWindow).Assembly.GetName().Version?.ToString(3) ?? "");
         AboutText.Text =
             "Kiitou changes the Windows hosts file only when you apply or disable a profile or restore a backup, " +
-            "after Windows asks for administrator permission. Its checks show how a connection behaves; they cannot prove " +
-            "that an address is authentic or a website safe. Provided as is, without warranty. Use it at your own risk.";
+            "and only with Windows' permission. Its checks show how a connection behaves; they cannot prove that " +
+            "an address is authentic or a website safe. Provided as is, without warranty. Use it at your own risk.";
+        RefreshUpdates();
     }
 
     private void ThemeColor_Changed(object sender, SelectionChangedEventArgs e)

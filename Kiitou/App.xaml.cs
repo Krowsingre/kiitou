@@ -12,6 +12,7 @@ namespace Kiitou;
 public partial class App : Application
 {
     private const string LayoutCheckSwitch = "--layout-check";
+    private const string UninstallCleanupSwitch = "--uninstall-cleanup";
 
     private void Application_Startup(object sender, StartupEventArgs e)
     {
@@ -28,6 +29,13 @@ public partial class App : Application
                 exitCode = (int)HostsWriteOutcome.WriteFailed;
             }
             Shutdown(exitCode);
+            return;
+        }
+
+        // Run by the uninstaller: offer to take Kiitou's mappings out of the hosts file first.
+        if (e.Args.Length > 0 && e.Args[0] == UninstallCleanupSwitch)
+        {
+            Shutdown(RunUninstallCleanup());
             return;
         }
 
@@ -79,5 +87,41 @@ public partial class App : Application
                 "Kiitou startup error", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    /// <summary>
+    /// If Kiitou's mappings are still in the hosts file, asks whether to remove them before Kiitou
+    /// is uninstalled. Never stops the uninstall: every outcome returns 0.
+    /// </summary>
+    private static int RunUninstallCleanup()
+    {
+        try
+        {
+            var hostsFile = new HostsFileService(HostsFileService.SystemHostsPath);
+            int count = ManagedHostsBlock.Analyze(hostsFile.Read().Text).ManagedMappings.Count;
+            if (count == 0) return 0;
+
+            MessageBoxResult answer = MessageBox.Show(
+                $"Kiitou's {count} mapping{(count == 1 ? " is" : "s are")} still in the Windows hosts file.\n\n" +
+                "Remove them before Kiitou is uninstalled? Windows will ask for permission.\n" +
+                "Choose No to leave them in place.",
+                "Uninstall Kiitou", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.Yes);
+            if (answer != MessageBoxResult.Yes) return 0;
+
+            StoragePaths paths = StoragePaths.Resolve();
+            var hosts = new HostsApplyService(
+                hostsFile,
+                new HostsBackupStore(Path.Combine(paths.DataDirectory, "backups")),
+                HostsApplyService.CreateSystemWriter(hostsFile, paths.DataDirectory));
+            HostsOperationResult result = hosts.Apply(hosts.Preview([], null));
+            if (!result.Succeeded && result.Outcome != HostsWriteOutcome.Cancelled)
+                MessageBox.Show("Kiitou's mappings could not be removed from the hosts file. They are still there.",
+                    "Uninstall Kiitou", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            // Nothing can be done here; the uninstall carries on.
+        }
+        return 0;
     }
 }

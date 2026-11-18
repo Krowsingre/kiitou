@@ -85,7 +85,12 @@ $work = Join-Path ([System.IO.Path]::GetTempPath()) ("kiitou-tour-" + [guid]::Ne
 New-Item -ItemType Directory -Force $work | Out-Null
 $exeCopy = Join-Path $work "Kiitou.exe"
 Copy-Item $Exe $exeCopy
-$configPath = Join-Path $work "config.json"
+# Kiitou keeps its settings in local application data; the tour points it at a folder of its own.
+$data = Join-Path $work "data"
+New-Item -ItemType Directory -Force $data | Out-Null
+$env:KIITOU_DATA_DIR = $data
+$env:KIITOU_NO_UPDATE_CHECK = "1"
+$configPath = Join-Path $data "config.json"
 
 function New-Assessment([string]$Status, [string[]]$Reasons, [string[]]$Warnings) {
     return [ordered]@{
@@ -350,7 +355,7 @@ if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
     $p.Kill(); [void]$p.WaitForExit(5000)
     $p = Start-Kiitou
     if ((Get-Button $p) -ne "Disable Profile") { throw "State was not kept after an unexpected termination: '$(Get-Button $p)'" }
-    $leftovers = @(Get-ChildItem $work -Force -Filter ".kiitou-*")
+    $leftovers = @(Get-ChildItem $data -Force -Filter ".kiitou-*")
     if ($leftovers.Count -ne 0) { throw "Temporary files were left behind: $($leftovers.Name -join ', ')" }
 
     # Disable: removes the mappings and unlocks the profile list, with no message box.
@@ -379,7 +384,7 @@ if ($env:GITHUB_ACTIONS -eq "true" -and $elevated) {
     if (-not (($hostsAfter -ceq $hostsBefore) -or ($hostsAfter -ceq ($hostsBefore + "`r`n")) -or ($hostsAfter -ceq ($hostsBefore + "`n")))) {
         throw "The hosts file was not returned to its original content"
     }
-    $backups = @(Get-ChildItem (Join-Path $work "backups") -Filter "hosts-*.bak")
+    $backups = @(Get-ChildItem (Join-Path $data "backups") -Filter "hosts-*.bak")
     if ($backups.Count -lt 4 -or -not ($backups.Name -contains "hosts-original.bak")) { throw "Expected the original and at least three backups, found: $($backups.Name -join ', ')" }
     Write-Host "  hosts file returned to its original content; $($backups.Count) backups kept"
 } else {

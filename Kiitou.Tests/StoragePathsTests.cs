@@ -5,30 +5,34 @@ namespace Kiitou.Tests;
 public class StoragePathsTests
 {
     [Fact]
-    public void WritableApplicationFolderIsUsedAsPortableStorage()
+    public void SettingsLiveInLocalApplicationDataNeverBesideTheProgram()
     {
         using var app = new TempDirectory();
         using var local = new TempDirectory();
 
         var paths = StoragePaths.Resolve(app.Path + Path.DirectorySeparatorChar, local.Path);
 
-        Assert.True(paths.Portable);
-        Assert.Equal(app.Path, paths.DataDirectory);
+        Assert.False(paths.Portable);
+        Assert.Equal(app.Path, paths.ApplicationDirectory);
+        Assert.Equal(Path.Combine(local.Path, "Kiitou"), paths.DataDirectory);
+        Assert.True(Directory.Exists(paths.DataDirectory));
         Assert.Empty(Directory.GetFileSystemEntries(app.Path));
-        Assert.False(Directory.Exists(Path.Combine(local.Path, "Kiitou")));
+        Assert.Empty(Directory.GetFileSystemEntries(paths.DataDirectory));
     }
 
     [Fact]
-    public void UnwritableApplicationFolderFallsBackToLocalAppData()
+    public void TheDataFolderCanBeRedirectedForTests()
     {
+        using var app = new TempDirectory();
         using var local = new TempDirectory();
-        string missing = Path.Combine(local.Path, "does-not-exist");
+        using var elsewhere = new TempDirectory();
+        string target = Path.Combine(elsewhere.Path, "data");
 
-        var paths = StoragePaths.Resolve(missing, local.Path);
+        var paths = StoragePaths.Resolve(app.Path, local.Path, target);
 
-        Assert.False(paths.Portable);
-        Assert.Equal(Path.Combine(local.Path, "Kiitou"), paths.DataDirectory);
-        Assert.True(Directory.Exists(paths.DataDirectory));
+        Assert.Equal(target, paths.DataDirectory);
+        Assert.True(Directory.Exists(target));
+        Assert.False(Directory.Exists(Path.Combine(local.Path, "Kiitou")));
     }
 
     [Fact]
@@ -40,6 +44,15 @@ public class StoragePathsTests
         var paths = StoragePaths.Resolve(root, local.Path);
 
         Assert.Equal(root, paths.ApplicationDirectory);
-        Assert.True(Path.IsPathFullyQualified(Path.Combine(paths.ApplicationDirectory, "config.json")));
+    }
+
+    [Fact]
+    public void AnUnusableSettingsFolderIsReported()
+    {
+        using var local = new TempDirectory();
+        string blocked = Path.Combine(local.Path, "Kiitou");
+        File.WriteAllText(blocked, "a file where the folder should be");
+
+        Assert.ThrowsAny<IOException>(() => StoragePaths.Resolve(local.Path, local.Path));
     }
 }

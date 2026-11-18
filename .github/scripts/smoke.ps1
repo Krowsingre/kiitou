@@ -47,9 +47,20 @@ trap {
 
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ("kiitou-smoke-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force $work | Out-Null
-$exeCopy = Join-Path $work "Kiitou.exe"
+$appDir = Join-Path $work "app"
+New-Item -ItemType Directory -Force $appDir | Out-Null
+$exeCopy = Join-Path $appDir "Kiitou.exe"
 Copy-Item $Exe $exeCopy
-$config = Join-Path $work "config.json"
+# Kiitou keeps its settings in local application data; tests point it at a folder of their own.
+$data = Join-Path $work "data"
+$env:KIITOU_DATA_DIR = $data
+$env:KIITOU_NO_UPDATE_CHECK = "1"
+$config = Join-Path $data "config.json"
+
+function Assert-NothingBesideExe([string]$Folder) {
+    $extra = @(Get-ChildItem $Folder -Force | Where-Object { $_.Name -ne "Kiitou.exe" })
+    if ($extra.Count -ne 0) { throw "Files were written beside Kiitou.exe: $($extra.Name -join ', ')" }
+}
 
 Write-Host "== First launch"
 $p = Start-Process $exeCopy -PassThru
@@ -58,8 +69,9 @@ if ($p.HasExited) { throw "Kiitou exited during first launch (exit code $($p.Exi
 if ($p.MainWindowTitle -notlike "Kiitou*" -or $p.MainWindowTitle -like "*error*") { throw "Unexpected window title '$($p.MainWindowTitle)'" }
 Start-Sleep -Seconds 2
 Save-Screenshot "01-first-launch"
-if (-not (Test-Path $config)) { throw "config.json was not created beside the executable" }
+if (-not (Test-Path $config)) { throw "config.json was not created in the settings folder" }
 Stop-App $p
+Assert-NothingBesideExe $appDir
 $hash = (Get-FileHash $config).Hash
 
 Write-Host "== Relaunch"
@@ -68,7 +80,7 @@ Wait-Window $p 60
 if ($p.HasExited) { throw "Kiitou exited during relaunch (exit code $($p.ExitCode))" }
 if ($p.MainWindowTitle -like "*error*") { throw "Relaunch showed an error dialog" }
 Stop-App $p
-$leftovers = @(Get-ChildItem $work -Force -Filter ".kiitou-*")
+$leftovers = @(Get-ChildItem $data -Force -Filter ".kiitou-*")
 if ($leftovers.Count -ne 0) { throw "Temporary files were left behind: $($leftovers.Name -join ', ')" }
 
 Write-Host "== Corrupted configuration"
@@ -81,25 +93,21 @@ if ($p.MainWindowTitle -ne "Kiitou startup error") { throw "Expected the startup
 $p.Kill(); [void]$p.WaitForExit(5000)
 if ((Get-FileHash $config).Hash -ne $corruptHash) { throw "The corrupted configuration file was modified" }
 
-Write-Host "== Folder that cannot be written to"
-$protected = Join-Path $work "protected"
-New-Item -ItemType Directory -Force $protected | Out-Null
-Copy-Item $Exe (Join-Path $protected "Kiitou.exe")
-$fallback = Join-Path $env:LOCALAPPDATA "Kiitou"
-$fallbackExisted = Test-Path $fallback
-& icacls $protected /deny "$($env:USERNAME):(WD,AD)" | Out-Null
+Write-Host "== Default settings folder"
+$default = Join-Path $env:LOCALAPPDATA "Kiitou"
+$defaultExisted = Test-Path $default
+Remove-Item Env:KIITOU_DATA_DIR
 try {
-    $p = Start-Process (Join-Path $protected "Kiitou.exe") -PassThru
+    $p = Start-Process $exeCopy -PassThru
     Wait-Window $p 90
-    if ($p.HasExited -or $p.MainWindowTitle -like "*error*") { throw "Kiitou did not start from a folder it cannot write to" }
+    if ($p.HasExited -or $p.MainWindowTitle -like "*error*") { throw "Kiitou did not start with its default settings folder" }
     Stop-App $p
-    $written = @(Get-ChildItem $protected -Force | Where-Object { $_.Name -ne "Kiitou.exe" })
-    if ($written.Count -ne 0) { throw "Files were written into the protected folder: $($written.Name -join ', ')" }
-    if (-not (Test-Path (Join-Path $fallback "config.json"))) { throw "config.json was not created in local application data" }
-    Write-Host "  configuration was created in $fallback"
+    Assert-NothingBesideExe $appDir
+    if (-not (Test-Path (Join-Path $default "config.json"))) { throw "config.json was not created in $default" }
+    Write-Host "  settings were created in $default and nothing beside Kiitou.exe"
 } finally {
-    & icacls $protected /remove:d $env:USERNAME | Out-Null
-    if (-not $fallbackExisted) { Remove-Item $fallback -Recurse -Force -ErrorAction SilentlyContinue }
+    $env:KIITOU_DATA_DIR = $data
+    if (-not $defaultExisted) { Remove-Item $default -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
 Write-Host "== Privileged hosts helper (build runner only)"

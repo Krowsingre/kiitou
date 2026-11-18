@@ -60,13 +60,10 @@ a fixed window size, the Settings layout, reputation services, and the removal o
 functions. They are listed in `AMENDMENTS.md`, which overrides the earlier documents.
 
 ## Open decisions for the user
-- **Portable storage.** Settings are written beside the executable whenever that folder is
-  writable, so running from Downloads or the Desktop stores them there, and moving the
-  executable starts a fresh configuration.
 - **No backup of `config.json`** is kept when it is saved (hosts-file backups are kept).
 - **No single-instance guard.** Two copies running at once can overwrite each other's settings.
-- **Executable size.** About 174 MB uncompressed. Single-file compression would shrink the
-  download at some cost in start-up time.
+- **Update-signing key.** The private key must be added as the `KIITOU_UPDATE_SIGNING_KEY`
+  secret by the user (`RELEASING.md`). Until then releases carry no update information.
 - **Code signing.** Unsigned; SmartScreen will warn.
 
 ## Known limits
