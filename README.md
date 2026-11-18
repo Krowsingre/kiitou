@@ -13,8 +13,9 @@ Download `Kiitou-Setup-<version>.exe` from the
 your Windows account only, so it does not need administrator rights. The setup program is not
 code-signed, so Windows SmartScreen may warn about an unknown publisher.
 
-Kiitou checks for new versions itself and installs them on request (Settings > Updates). It only
-installs an update signed with Kiitou's own update key.
+Kiitou checks for new versions itself and installs them on request (Settings > Updates), in its
+own window without you having to close anything. It only installs an update signed with Kiitou's
+own update key.
 
 ## What it does
 
@@ -31,6 +32,8 @@ installs an update signed with Kiitou's own update key.
   without touching the hosts file.
 - **Statuses.** Each address gets one of four, with the reasons behind it: Connection Verified;
   Connection Works, Verification Incomplete; Failed or Unsafe; Not Tested.
+- **Network.** See where your tests appear to come from, optionally send tests through a SOCKS5
+  proxy such as Tor, and keep a log of which address worked from which location.
 - **Reputation checks.** Quad9 is built in and needs no account. You can add your own AbuseIPDB
   or VirusTotal key, or any filtering DNS server. Each can be switched off.
 - **Hosts file.** Kiitou only ever changes its own clearly marked section. Everything else in
@@ -48,6 +51,9 @@ A green "Connection Verified" means the connection behaves correctly: the addres
 it presents a certificate that is trusted and valid for the hostname. **It does not prove that
 an address is authentic or that a website is safe.**
 
+Finding where tests come from asks Cloudflare, which sees your public address. Tests through
+the test proxy reach websites from the proxy's address instead of yours.
+
 Reputation checks send the website's hostname (Quad9, custom DNS) or its address (AbuseIPDB,
 VirusTotal) to that service. A service is only contacted while it is switched on.
 
@@ -58,8 +64,9 @@ Kiitou is provided as is, without warranty of any kind. You use it at your own r
 
 ## Where settings are stored
 
-Settings, profiles and hosts-file backups are in `%LOCALAPPDATA%\Kiitou`, separate from the
-program. Uninstalling asks whether to delete them too.
+Settings, profiles, the test log and hosts-file backups are in `%LOCALAPPDATA%\Kiitou`,
+separate from the program, so updates keep them. A copy of the settings is saved before every
+update. Uninstalling (from Windows or Settings > About) asks whether to delete them too.
 
 ## Build
 

@@ -119,6 +119,10 @@ public partial class MainWindow
 
         var text = new StringBuilder();
         text.AppendLine($"{LegitimacyAssessor.StatusText(assessment.Status)} — {row.IpAddress}, checked {Local(assessment.AssessedUtc)}");
+        if (assessment.TestedFromIp is { Length: > 0 } fromIp)
+            text.AppendLine($"Tested from {fromIp} \u00B7 {assessment.TestedFromCountry}" + (assessment.ThroughProxy ? ", through the test proxy" : ""));
+        else if (assessment.ThroughProxy)
+            text.AppendLine("Tested through the test proxy; its location was not found out.");
         if (LegitimacyAssessor.IsStale(assessment, DateTime.UtcNow))
             text.AppendLine("This result is more than a day old. Test again for a current answer.");
         foreach (string reason in assessment.Reasons) text.AppendLine("• " + reason);

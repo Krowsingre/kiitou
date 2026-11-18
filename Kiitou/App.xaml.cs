@@ -32,6 +32,40 @@ public partial class App : Application
             return;
         }
 
+        // Run from a temporary copy of Kiitou: install an update while showing the update window.
+        if (e.Args.Length == 2 && e.Args[0] == UpdateWindow.Switch)
+        {
+            try
+            {
+                var updateWindow = new UpdateWindow(UpdateWindow.ReadRequest(e.Args[1]));
+                MainWindow = updateWindow;
+                updateWindow.Show();
+            }
+            catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or Updates.UpdateException or FormatException)
+            {
+                MessageBox.Show("The update could not be started.\n\n" + ex.Message, "Kiitou", MessageBoxButton.OK, MessageBoxImage.Error);
+                Shutdown(1);
+            }
+            return;
+        }
+
+        // Design check: shows one stage of the update window, over a given picture, without updating.
+        if (e.Args.Length >= 2 && e.Args[0] == UpdateWindow.PreviewSwitch)
+        {
+            var preview = new UpdateWindow(new UpdateRequest
+            {
+                FromVersion = "0.9.1",
+                ToVersion = "0.9.2",
+                SnapshotPath = e.Args.Length > 2 ? e.Args[2] : null,
+                ThemeColor = e.Args.Length > 3 ? e.Args[3] : "purple",
+                ThemeMode = e.Args.Length > 4 ? e.Args[4] : "dark"
+            }, preview: true);
+            preview.ShowPreview(e.Args[1]);
+            MainWindow = preview;
+            preview.Show();
+            return;
+        }
+
         // Run by the uninstaller: offer to take Kiitou's mappings out of the hosts file first.
         if (e.Args.Length > 0 && e.Args[0] == UninstallCleanupSwitch)
         {
@@ -59,12 +93,18 @@ public partial class App : Application
                 hostsFile,
                 new HostsBackupStore(Path.Combine(paths.DataDirectory, "backups")),
                 HostsApplyService.CreateSystemWriter(hostsFile, paths.DataDirectory));
-            var reputation = new ReputationSettings(config, new WindowsSecretProtector(), () => store.Save(config));
+            var secrets = new WindowsSecretProtector();
+            var reputation = new ReputationSettings(config, secrets, () => store.Save(config));
+            var network = new NetworkSettings(config, secrets, () => store.Save(config));
             var hub = new ReputationHub(reputation);
-            var session = new KiitouSession(store, config, hosts, new DirectDnsResolver(), new HttpsAddressTester(), hub);
+            var session = new KiitouSession(
+                store, config, hosts, new DirectDnsResolver(),
+                new HttpsAddressTester(proxy: () => network.ActiveProxy), hub,
+                location: new CloudflareLocationService(), testLog: new TestLogStore(paths.DataDirectory),
+                proxy: () => network.ActiveProxy);
 
             ThemeManager.Apply(config.Theme.Color, config.Theme.Mode);
-            var window = new MainWindow(session, paths, reputation, hub);
+            var window = new MainWindow(session, paths, reputation, hub, network);
             MainWindow = window;
             window.Show();
 

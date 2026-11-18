@@ -47,10 +47,19 @@ public sealed class KiitouSession
     private readonly IDnsResolver _dns;
     private readonly Func<DateTime> _utcNow;
 
+    private readonly ILocationService? _location;
+    private readonly Func<Socks5Proxy?> _proxy;
+    private (PublicLocation Location, string ProxyKey)? _origin;
+    private static readonly TimeSpan OriginLifetime = TimeSpan.FromMinutes(10);
+
     public KiitouSession(
         ConfigurationStore store, AppConfiguration config, HostsApplyService hosts,
-        IDnsResolver dns, IAddressTester tester, IReputationProvider? reputation = null, Func<DateTime>? utcNow = null)
+        IDnsResolver dns, IAddressTester tester, IReputationProvider? reputation = null, Func<DateTime>? utcNow = null,
+        ILocationService? location = null, TestLogStore? testLog = null, Func<Socks5Proxy?>? proxy = null)
     {
+        _location = location;
+        TestLog = testLog;
+        _proxy = proxy ?? (() => null);
         Store = store;
         Config = config;
         _hosts = hosts;
@@ -86,6 +95,9 @@ public sealed class KiitouSession
     }
 
     public ConfigurationStore Store { get; }
+
+    /// <summary>Every address test with where it was made from; null when not kept.</summary>
+    public TestLogStore? TestLog { get; }
     public AppConfiguration Config { get; }
     public WebsiteCatalog Catalog { get; }
     public ProfileManager Profiles { get; }
@@ -259,11 +271,72 @@ public sealed class KiitouSession
         WebsiteEntry website = Catalog.Get(websiteId);
         AddressCandidate address = website.Addresses.FirstOrDefault(a => a.Id == addressId)
             ?? throw new CatalogException("That address no longer exists.");
+        PublicLocation? origin = await GetOriginAsync(cancellationToken).ConfigureAwait(false);
         AddressAssessment assessment = await _verification
             .VerifyAsync(website, address, knownDns, cancellationToken).ConfigureAwait(false);
+
+        assessment.ThroughProxy = _proxy() is not null;
+        assessment.TestedFromIp = origin?.IpAddress;
+        assessment.TestedFromCountry = origin?.CountryName;
         Save();
+        TestLog?.Add(new TestLogEntry
+        {
+            TestedUtc = assessment.AssessedUtc,
+            Hostname = website.Hostname,
+            IpAddress = address.IpAddress,
+            FromIp = origin?.IpAddress ?? "",
+            FromCountryCode = origin?.CountryCode ?? "",
+            FromCountry = origin?.CountryName ?? "",
+            ThroughProxy = assessment.ThroughProxy,
+            Status = assessment.Status
+        });
         return assessment;
     }
+
+    /// <summary>
+    /// Where tests currently appear to come from. Looked up again when the proxy changes or after
+    /// ten minutes. Returns null when it cannot be found out; testing goes ahead regardless.
+    /// </summary>
+    public async Task<PublicLocation?> GetOriginAsync(CancellationToken cancellationToken, bool refresh = false)
+    {
+        if (_location is null) return null;
+        Socks5Proxy? proxy = _proxy();
+        string key = proxy?.ToString() + "|" + proxy?.Username;
+        if (!refresh && _origin is { } known && known.ProxyKey == key && _utcNow() - known.Location.CheckedUtc < OriginLifetime)
+            return known.Location;
+        try
+        {
+            PublicLocation location = await _location.GetAsync(proxy, cancellationToken).ConfigureAwait(false);
+            _origin = (location, key);
+            return location;
+        }
+        catch (LocationException)
+        {
+            _origin = null;
+            if (refresh) throw;
+            return null;
+        }
+    }
+
+    /// <summary>The location found by the last check, if it still applies to the current proxy.</summary>
+    public PublicLocation? LastOrigin
+    {
+        get
+        {
+            Socks5Proxy? proxy = _proxy();
+            string key = proxy?.ToString() + "|" + proxy?.Username;
+            return _origin is { } known && known.ProxyKey == key ? known.Location : null;
+        }
+    }
+
+    /// <summary>Saves the window position so the next start, or a new version, opens in the same place.</summary>
+    public void SetWindowPosition(double left, double top) => Saved(() =>
+    {
+        Config.Settings.WindowLeft = left;
+        Config.Settings.WindowTop = top;
+    });
+
+    public void SetNavOrder(IEnumerable<string> order) => Saved(() => Config.Settings.NavOrder = Navigation.Normalize(order));
 
     /// <summary>Verifies every candidate of a website, in order.</summary>
     public async Task VerifyAllAsync(Guid websiteId, IProgress<AddressCandidate>? progress, CancellationToken cancellationToken)

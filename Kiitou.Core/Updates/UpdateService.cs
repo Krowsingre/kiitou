@@ -46,10 +46,60 @@ public sealed class UpdateService
         _handler = handler;
         _publicKeyPem = publicKeyPem ?? PublicKeyPem;
         _feedUrl = feedUrl ?? FeedUrl;
-        _downloadFolder = downloadFolder ?? Path.Combine(Path.GetTempPath(), "Kiitou-update");
+        _downloadFolder = downloadFolder ?? DefaultDownloadFolder;
     }
 
     public Version Current => _current;
+
+    /// <summary>The folder downloaded setup programs and the update window's copy of Kiitou are kept in.</summary>
+    public string DownloadFolder => _downloadFolder;
+
+    /// <summary>The default download folder, used by the uninstaller as well.</summary>
+    public static string DefaultDownloadFolder => Path.Combine(Path.GetTempPath(), "Kiitou-update");
+
+    /// <summary>
+    /// Deletes everything left from earlier updates. Files still in use (for example by an update
+    /// window that is just closing) are skipped and removed next time. Returns how many were removed.
+    /// </summary>
+    public int CleanUpDownloads()
+    {
+        if (!Directory.Exists(_downloadFolder)) return 0;
+        int removed = 0;
+        foreach (string file in Directory.GetFiles(_downloadFolder))
+        {
+            try
+            {
+                File.Delete(file);
+                removed++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        try
+        {
+            if (!Directory.EnumerateFileSystemEntries(_downloadFolder).Any()) Directory.Delete(_downloadFolder);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        return removed;
+    }
+
+    /// <summary>
+    /// Confirms that a setup program already on disk was signed with Kiitou's update key.
+    /// </summary>
+    /// <exception cref="UpdateException">The signature is missing or does not match.</exception>
+    public void VerifyFile(string path, string? signatureBase64)
+    {
+        byte[] signature;
+        try
+        {
+            signature = Convert.FromBase64String(signatureBase64 ?? "");
+        }
+        catch (FormatException)
+        {
+            signature = [];
+        }
+        if (signature.Length == 0 || !File.Exists(path) || !IsSignedByKiitou(path, signature))
+            throw new UpdateException("The update was not signed with Kiitou's update key, so it was not installed.");
+    }
 
     /// <exception cref="UpdateException">GitHub could not be reached or its answer could not be read.</exception>
     public async Task<UpdateInfo> CheckAsync(CancellationToken cancellationToken)
@@ -159,21 +209,55 @@ public sealed class UpdateService
         }
     }
 
-    /// <summary>Starts the verified setup program quietly. The caller then closes Kiitou.</summary>
-    public static void StartInstaller(string verifiedSetupPath)
+    /// <summary>
+    /// Runs the verified setup program quietly and waits for it. Kiitou is not started by the
+    /// setup program; the caller starts it. Returns the setup program's exit code.
+    /// </summary>
+    public static async Task<int> RunInstallerAsync(string verifiedSetupPath, string logPath, TimeSpan timeout)
     {
+        Process? process;
         try
         {
-            Process.Start(new ProcessStartInfo
+            process = Process.Start(new ProcessStartInfo
             {
                 FileName = verifiedSetupPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LAUNCH=1",
-                UseShellExecute = true
-            })?.Dispose();
+                Arguments = $"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LAUNCH=0 /LOG=\"{logPath}\"",
+                UseShellExecute = false
+            });
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
             throw new UpdateException("The update could not be started: " + ex.Message);
+        }
+        if (process is null) throw new UpdateException("The update could not be started.");
+        using (process)
+        {
+            using var limit = new CancellationTokenSource(timeout);
+            try
+            {
+                await process.WaitForExitAsync(limit.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new UpdateException("The update took too long and was stopped waiting for.");
+            }
+            return process.ExitCode;
+        }
+    }
+
+    /// <summary>True when an installer log records an internal or script error.</summary>
+    public static bool LogHasErrors(string logPath)
+    {
+        try
+        {
+            string text = File.ReadAllText(logPath);
+            return text.Contains("Internal error", StringComparison.Ordinal) ||
+                   text.Contains("Exception message", StringComparison.Ordinal) ||
+                   text.Contains("Runtime error", StringComparison.Ordinal);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
         }
     }
 
