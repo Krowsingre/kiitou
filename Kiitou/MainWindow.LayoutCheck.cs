@@ -131,7 +131,7 @@ public partial class MainWindow
 
         Rect content = BoundsOf(ContentHost);
         Rect appearance = BoundsOf(AppearanceCard), system = BoundsOf(SystemCard), reputation = BoundsOf(ReputationCard);
-        Rect storage = BoundsOf(StorageCard), about = BoundsOf(AboutCard);
+        Rect storage = BoundsOf(UpdatesCard), about = BoundsOf(AboutCard);
         Rect label = BoundsOf(ProfileLabel), picker = BoundsOf(ProfilePicker), apply = BoundsOf(ApplyButton), badge = BoundsOf(StatePill);
         Rect header = BoundsOf(HeaderBar);
 
@@ -147,14 +147,14 @@ public partial class MainWindow
         Expect("page margin on the right", ContentHost.Margin.Right, Gap);
         Expect("page margin at the bottom", ContentHost.Margin.Bottom, Gap);
         Expect("left edge of Appearance against the page edge", appearance.Left, content.Left);
-        Expect("left edge of Storage against the page edge", storage.Left, content.Left);
+        Expect("left edge of Updates against the page edge", storage.Left, content.Left);
         Expect("space between Appearance and System", system.Left - appearance.Right, Gap);
         Expect("space between the first and second card rows", reputation.Top - appearance.Bottom, Gap);
         Expect("space between the second and third card rows", storage.Top - reputation.Bottom, Gap);
-        Expect("space between Storage and About", about.Left - storage.Right, Gap);
+        Expect("space between Updates and About", about.Left - storage.Right, Gap);
         Expect("right edge of System against the page edge", system.Right, content.Right);
         Expect("right edge of About against the page edge", about.Right, content.Right);
-        Expect("bottom of Storage against the page edge", storage.Bottom, content.Bottom);
+        Expect("bottom of Updates against the page edge", storage.Bottom, content.Bottom);
         Expect("bottom of About against the page edge", about.Bottom, content.Bottom);
         Expect("space below the Settings cards", BoundsOf(FooterBar).Top - about.Bottom, Gap);
         Expect("height of Appearance against System", appearance.Height, system.Height);

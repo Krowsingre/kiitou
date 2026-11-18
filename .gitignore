@@ -8,3 +8,5 @@ config.json
 out/
 shots/
 TestResults/
+out-installer/
+latest.json

@@ -74,6 +74,29 @@ the pass audits, **this file wins**.
 - MIT License with the Commons Clause condition (`LICENSE`): free to use, copy, modify and
   share; may not be sold.
 
+### Installed application and updates (approved 2026-11-16)
+- **Kiitou is now an installed application**, replacing "portable executable, no installer" and
+  "the user receives only a standalone exe". The download is `Kiitou-Setup-<version>.exe`.
+- **Installed for the current user only**, in `%LOCALAPPDATA%\Programs\Kiitou`, so installing and
+  updating never need administrator rights. A Start menu shortcut is created; a desktop shortcut
+  is optional.
+- **Nothing is written beside the program.** Settings, profiles and hosts-file backups live in
+  `%LOCALAPPDATA%\Kiitou`.
+- **Uninstalling asks each time** whether to also delete those settings. A quiet uninstall keeps
+  them. If Kiitou's mappings are still in the hosts file, the uninstaller offers to remove them.
+- **Updates work like The Bound Vigil's:** each version is a GitHub release with the setup program
+  and `latest.json`; Kiitou checks it, and installs only a setup program signed with Kiitou's own
+  update key. Settings: "Look for updates when Kiitou opens" (on by default) and "Install updates
+  by themselves" (off by default), with a Check for Updates / Install and Restart button.
+- **Real version numbers** (`version.txt`, starting at 0.9.0) replace the `pass-N` releases.
+- On the Settings page the **Storage card is replaced by an Updates card**; the settings location
+  is one line in About, with an Open Folder link.
+- See `RELEASING.md` for how releases are made and how the signing key is set up.
+
 ### Not verified
 - AbuseIPDB and VirusTotal were tested only against simulated replies; no account was available.
 - Auto mode following a live change of the Windows setting was not exercised on the build runner.
+- An update installed end to end from a real release: it needs the signing key secret and a
+  second published version.
+- The uninstaller's two questions (delete settings; remove hosts mappings) are interactive and
+  were not driven; the quiet uninstall path was tested.

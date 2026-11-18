@@ -334,6 +334,15 @@ public class SessionTests
         Assert.True(relaunched.Config.Settings.UseQuad9);
         fx.Session.SetUseQuad9(false);
         Assert.False(fx.Open().Config.Settings.UseQuad9);
+
+        Assert.True(relaunched.Config.Settings.CheckUpdates);
+        Assert.False(relaunched.Config.Settings.AutoInstallUpdates);
+        fx.Session.SetUpdateOptions(true, true);
+        Assert.True(fx.Open().Config.Settings.AutoInstallUpdates);
+        fx.Session.SetUpdateOptions(false, true);
+        KiitouSession off = fx.Open();
+        Assert.False(off.Config.Settings.CheckUpdates);
+        Assert.False(off.Config.Settings.AutoInstallUpdates);
         Assert.Throws<CatalogException>(() => fx.Session.SetTheme("pink", "dark"));
     }
 
