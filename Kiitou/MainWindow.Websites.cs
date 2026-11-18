@@ -45,7 +45,7 @@ public partial class MainWindow
     private void OpenWebsite(Guid websiteId)
     {
         _pendingWebsiteSelection = websiteId;
-        ShowView(1);
+        ShowView(WebsitesView);
     }
 
     private void RefreshWebsites()

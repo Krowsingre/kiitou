@@ -70,23 +70,27 @@
 
             <!-- Left navigation -->
             <Border Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0">
+                <!-- Items can be dragged into any order; Tag is the page identifier. -->
                 <ListBox x:Name="Nav" Margin="6,8" SelectionChanged="Nav_SelectionChanged" FontSize="13">
-                    <ListBoxItem x:Name="NavHome" IsSelected="True">
+                    <ListBoxItem x:Name="NavHome" Tag="home" IsSelected="True">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE80F;" Margin="0,0,10,0"/><TextBlock Text="Home"/></StackPanel>
                     </ListBoxItem>
-                    <ListBoxItem x:Name="NavWebsites">
+                    <ListBoxItem x:Name="NavWebsites" Tag="websites">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" Margin="0,0,10,0"/><TextBlock Text="Websites"/></StackPanel>
                     </ListBoxItem>
-                    <ListBoxItem x:Name="NavProfiles">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE81E;" Margin="0,0,10,0"/><TextBlock Text="Profiles"/></StackPanel>
-                    </ListBoxItem>
-                    <ListBoxItem x:Name="NavDiscovery">
+                    <ListBoxItem x:Name="NavDiscovery" Tag="discovery">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" Margin="0,0,10,0"/><TextBlock Text="Discovery &amp; Test"/></StackPanel>
                     </ListBoxItem>
-                    <ListBoxItem x:Name="NavHosts">
+                    <ListBoxItem x:Name="NavProfiles" Tag="profiles">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE81E;" Margin="0,0,10,0"/><TextBlock Text="Profiles"/></StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem x:Name="NavNetwork" Tag="network">
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE968;" Margin="0,0,10,0"/><TextBlock Text="Network"/></StackPanel>
+                    </ListBoxItem>
+                    <ListBoxItem x:Name="NavHosts" Tag="hosts">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE8A5;" Margin="0,0,10,0"/><TextBlock Text="Hosts File"/></StackPanel>
                     </ListBoxItem>
-                    <ListBoxItem x:Name="NavSettings">
+                    <ListBoxItem x:Name="NavSettings" Tag="settings">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE713;" Margin="0,0,10,0"/><TextBlock Text="Settings"/></StackPanel>
                     </ListBoxItem>
                 </ListBox>
@@ -386,6 +390,127 @@
                     </Grid>
                 </Grid>
 
+                <!-- ============ Network ============ -->
+                <Grid x:Name="ViewNetwork" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="LocationCard" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <Button x:Name="LocationRefresh" DockPanel.Dock="Right" Content="Refresh" Margin="0" Padding="10,2"
+                                            MinHeight="24" Click="LocationRefresh_Click"/>
+                                    <TextBlock Text="Your Location" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock x:Name="LocationIp" FontSize="20" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="LocationCountry" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="LocationChecked" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="ProxyCard" Grid.Column="2" Style="{StaticResource Card}">
+                            <StackPanel>
+                                <DockPanel Margin="0,0,0,6">
+                                    <CheckBox x:Name="ProxyToggle" DockPanel.Dock="Right" Style="{StaticResource Switch}"
+                                              Click="ProxyToggle_Click" ToolTip="Send Kiitou's tests through this proxy"/>
+                                    <TextBlock Text="Test Proxy" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="96"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="70"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="ProxyType" SelectedIndex="0" ToolTip="Proxy type">
+                                        <ComboBoxItem Content="SOCKS5"/>
+                                    </ComboBox>
+                                    <Grid Grid.Column="2">
+                                    <TextBox x:Name="ProxyHost" LostFocus="ProxyField_LostFocus" TextChanged="ProxyField_Changed"/>
+                                    <TextBlock x:Name="ProxyHostHint" Text="Server, such as 127.0.0.1" Foreground="{DynamicResource Muted}"
+                                               IsHitTestVisible="False" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                                </Grid>
+                                    <Grid Grid.Column="4">
+                                    <TextBox x:Name="ProxyPort" LostFocus="ProxyField_LostFocus" TextChanged="ProxyField_Changed"/>
+                                    <TextBlock x:Name="ProxyPortHint" Text="Port" Foreground="{DynamicResource Muted}"
+                                               IsHitTestVisible="False" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                                </Grid>
+                                </Grid>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid>
+                                    <TextBox x:Name="ProxyUser" LostFocus="ProxyField_LostFocus" TextChanged="ProxyField_Changed"/>
+                                    <TextBlock x:Name="ProxyUserHint" Text="Username (optional)" Foreground="{DynamicResource Muted}"
+                                               IsHitTestVisible="False" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                                </Grid>
+                                    <Grid Grid.Column="2">
+                                        <PasswordBox x:Name="ProxyPassword" Padding="6,4,30,4" LostFocus="ProxyField_LostFocus"
+                                                     PasswordChanged="ProxyField_Changed"/>
+                                        <TextBox x:Name="ProxyPasswordPlain" Padding="6,4,30,4" Visibility="Collapsed"
+                                                 LostFocus="ProxyField_LostFocus" TextChanged="ProxyField_Changed"/>
+                                        <TextBlock x:Name="ProxyPasswordHint" Text="Password" Foreground="{DynamicResource Muted}"
+                                                   IsHitTestVisible="False" VerticalAlignment="Center" Margin="9,0,0,0"/>
+                                        <ToggleButton x:Name="ProxyEye" Style="{StaticResource EyeToggle}" HorizontalAlignment="Right"
+                                                      Click="ProxyEye_Click" ToolTip="Show or hide the password"/>
+                                    </Grid>
+                                    <Button x:Name="ProxyTest" Grid.Column="4" Content="Test" MinWidth="70" Margin="0" Click="ProxyTest_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="ProxyStatus" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                    <Border x:Name="LogCard" Grid.Row="2" Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel Margin="0,0,0,8">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <ComboBox x:Name="LogWebsite" Width="190" Margin="0,0,8,0" SelectionChanged="LogFilter_Changed"
+                                              ToolTip="Show one website"/>
+                                    <ComboBox x:Name="LogLocation" Width="170" Margin="0,0,8,0" SelectionChanged="LogFilter_Changed"
+                                              ToolTip="Show one location"/>
+                                    <Button x:Name="ClearLogButton" Content="Clear Log" Margin="0" Click="ClearLog_Click"/>
+                                </StackPanel>
+                                <TextBlock Text="Test Log" Style="{StaticResource CardTitle}" Margin="0" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <DataGrid x:Name="LogGrid" Grid.Row="1">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="When" Binding="{Binding When}" Width="118"/>
+                                    <DataGridTextColumn Header="Website" Binding="{Binding Website}" Width="*"/>
+                                    <DataGridTextColumn Header="Address" Binding="{Binding Address}" Width="*"/>
+                                    <DataGridTextColumn Header="Tested From" Binding="{Binding From}" Width="200"/>
+                                    <DataGridTemplateColumn Header="Result" Width="200">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Left" Style="{StaticResource Glyph}" Text="{Binding StatusGlyph}" Foreground="{Binding StatusBrush}"/>
+                                                    <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
                 <!-- ============ Hosts File ============ -->
                 <Grid x:Name="ViewHosts" Visibility="Collapsed">
                     <Grid.RowDefinitions>
@@ -639,6 +764,8 @@
                                     </DockPanel>
                                     <TextBlock x:Name="AboutText" Style="{StaticResource MutedText}" FontSize="11.5"/>
                                     <DockPanel Margin="0,4,0,0">
+                                        <Button x:Name="UninstallLink" DockPanel.Dock="Right" Style="{StaticResource LinkBtn}" Content="Uninstall Kiitou…"
+                                                Margin="12,0,0,0" FontSize="11.5" Click="Uninstall_Click"/>
                                         <Button x:Name="OpenDataFolder" DockPanel.Dock="Right" Style="{StaticResource LinkBtn}" Content="Open Folder"
                                                 Margin="12,0,0,0" FontSize="11.5" Click="OpenDataFolder_Click"/>
                                         <TextBlock x:Name="StoragePath" Foreground="{DynamicResource Muted}" FontSize="11.5"

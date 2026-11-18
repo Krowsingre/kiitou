@@ -15,7 +15,7 @@ public class ConfigurationStoreTests
         var config = StoreIn(dir).Load();
 
         Assert.True(File.Exists(dir.File("config.json")));
-        Assert.Equal(1, config.SchemaVersion);
+        Assert.Equal(AppConfiguration.CurrentSchemaVersion, config.SchemaVersion);
         Assert.Equal("purple", config.Theme.Color);
         Assert.Equal("auto", config.Theme.Mode);
         Assert.Empty(config.Websites);
@@ -66,7 +66,9 @@ public class ConfigurationStoreTests
     [InlineData("{ \"SchemaVersion\": 1, \"Theme\": {", "invalid")]
     [InlineData("", "invalid")]
     [InlineData("null", "no root object")]
-    [InlineData("{\"SchemaVersion\":2}", "schema version")]
+    [InlineData("{\"SchemaVersion\":99}", "newer version of Kiitou")]
+    [InlineData("{\"SchemaVersion\":0}", "schema version")]
+    [InlineData("{\"SchemaVersion\":\"two\"}", "schema version")]
     [InlineData("{\"SchemaVersion\":1,\"Theme\":{\"Color\":\"pink\",\"Mode\":\"dark\"}}", "theme")]
     [InlineData("{\"SchemaVersion\":1,\"Websites\":[]}", "missing required collections or profiles")]
     [InlineData("{\"SchemaVersion\":1,\"Profiles\":[null]}", "profile entry")]

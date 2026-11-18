@@ -1,5 +1,7 @@
 
+using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Kiitou.Hosts;
 using Kiitou.Models;
 
@@ -8,6 +10,8 @@ namespace Kiitou.Services;
 public sealed class ConfigurationStore
 {
     private const string ConfigFileName = "config.json";
+    public const string SafetyCopyFolder = "config-backups";
+    public const int SafetyCopiesKept = 10;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -28,12 +32,35 @@ public sealed class ConfigurationStore
             return initial;
         }
 
+        JsonObject root;
         try
         {
-            using var stream = File.OpenRead(ConfigFilePath);
-            var config = JsonSerializer.Deserialize<AppConfiguration>(stream, JsonOptions)
+            root = JsonNode.Parse(File.ReadAllText(ConfigFilePath)) as JsonObject
+                ?? throw new InvalidDataException("Configuration JSON has no root object.");
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Configuration JSON is invalid; the existing file was not overwritten.", ex);
+        }
+
+        int version = ConfigurationMigrations.ReadVersion(root);
+        if (version > AppConfiguration.CurrentSchemaVersion)
+            throw new InvalidDataException(
+                "These settings were saved by a newer version of Kiitou. Install the newer version again; the settings were not changed.");
+        bool converted = version < AppConfiguration.CurrentSchemaVersion;
+        if (converted)
+        {
+            // Keep the original before converting it, so nothing is lost if conversion goes wrong.
+            CreateSafetyCopy($"schema{version}");
+            ConfigurationMigrations.Upgrade(root, version);
+        }
+
+        try
+        {
+            AppConfiguration config = root.Deserialize<AppConfiguration>(JsonOptions)
                 ?? throw new InvalidDataException("Configuration JSON has no root object.");
             Validate(config);
+            if (converted) Save(config);
             return config;
         }
         catch (JsonException ex)
@@ -41,6 +68,36 @@ public sealed class ConfigurationStore
             throw new InvalidDataException("Configuration JSON is invalid; the existing file was not overwritten.", ex);
         }
     }
+
+    /// <summary>
+    /// Copies the current settings file into the safety-copy folder, for example before an update,
+    /// keeping the newest <see cref="SafetyCopiesKept"/> copies. Returns the copy's path, or null if
+    /// there is no settings file yet.
+    /// </summary>
+    public string? CreateSafetyCopy(string reason)
+    {
+        if (!File.Exists(ConfigFilePath)) return null;
+        string folder = Path.Combine(Paths.DataDirectory, SafetyCopyFolder);
+        Directory.CreateDirectory(folder);
+        string safeReason = new string(reason.Where(c => char.IsLetterOrDigit(c) || c is '.' or '-').ToArray());
+        string stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+        string copy = Path.Combine(folder, $"config-{stamp}-{safeReason}.json");
+        File.Copy(ConfigFilePath, copy, overwrite: true);
+
+        foreach (string old in Directory.GetFiles(folder, "config-*.json")
+                     .OrderByDescending(Path.GetFileName, StringComparer.Ordinal).Skip(SafetyCopiesKept))
+        {
+            try { File.Delete(old); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+        return copy;
+    }
+
+    public IReadOnlyList<string> SafetyCopies =>
+        Directory.Exists(Path.Combine(Paths.DataDirectory, SafetyCopyFolder))
+            ? Directory.GetFiles(Path.Combine(Paths.DataDirectory, SafetyCopyFolder), "config-*.json")
+                .OrderByDescending(Path.GetFileName, StringComparer.Ordinal).ToList()
+            : [];
 
     public void Save(AppConfiguration config)
     {
@@ -64,13 +121,16 @@ public sealed class ConfigurationStore
 
     private static void Validate(AppConfiguration config)
     {
-        if (config.SchemaVersion != 1)
+        if (config.SchemaVersion != AppConfiguration.CurrentSchemaVersion)
             throw new InvalidDataException("Unsupported configuration schema version.");
         if (config.Theme is null || !ThemeCatalog.IsValid(config.Theme.Color, config.Theme.Mode))
             throw new InvalidDataException("Unrecognized theme selection.");
         config.Hosts ??= new HostsState();
         config.Settings ??= new AppSettings();
         NormalizeReputationSettings(config.Settings);
+        config.Settings.NavOrder = Navigation.Normalize(config.Settings.NavOrder);
+        config.Settings.Proxy ??= new ProxySettings();
+        NormalizeProxy(config.Settings.Proxy);
         if (config.Websites is null || config.Profiles is null || config.Profiles.Count == 0)
             throw new InvalidDataException("Configuration is missing required collections or profiles.");
         if (config.Websites.Any(w => w is null || w.Hostname is null || w.Addresses is null ||
@@ -146,6 +206,16 @@ public sealed class ConfigurationStore
                 slot.Enabled = false;
             }
         }
+    }
+
+    private static void NormalizeProxy(ProxySettings proxy)
+    {
+        proxy.Type = "socks5";
+        proxy.Host ??= "";
+        proxy.Username ??= "";
+        proxy.ProtectedPassword ??= "";
+        if (proxy.Port is < 0 or > 65535) proxy.Port = 0;
+        if (proxy.Host.Length == 0 || proxy.Port == 0) proxy.Enabled = false;
     }
 
     private static void CheckSelectedAddress(WebsiteEntry website, Guid? addressId, IpFamily family)

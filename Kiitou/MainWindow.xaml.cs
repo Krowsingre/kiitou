@@ -8,6 +8,7 @@ using System.Windows.Media;
 using Kiitou.Catalog;
 using Kiitou.Hosts;
 using Kiitou.Models;
+using Kiitou.Network;
 using Kiitou.Services;
 using Kiitou.Session;
 using Kiitou.Theming;
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private readonly KiitouSession _s;
     private readonly ReputationSettings _rep;
     private readonly ReputationHub _hub;
+    private readonly NetworkSettings _net;
     private readonly StoragePaths _paths;
     private readonly TrayIcon _tray;
     private bool _ready;
@@ -30,8 +32,9 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _cancel;
     private string? _message;
 
-    public MainWindow(KiitouSession session, StoragePaths paths, ReputationSettings reputation, ReputationHub hub)
+    public MainWindow(KiitouSession session, StoragePaths paths, ReputationSettings reputation, ReputationHub hub, NetworkSettings network)
     {
+        _net = network;
         _s = session;
         _paths = paths;
         _rep = reputation;
@@ -43,6 +46,8 @@ public partial class MainWindow : Window
         FilterBox.SelectedIndex = 0;
         TestCaveat.Text = "Tests never touch the hosts file and never select or apply an address. " + LegitimacyAssessor.Caveat;
         ApplyTheme();
+        ApplyNavOrder();
+        RestoreWindowPosition();
         StartUpdates();
         _ready = true;
         RefreshAll();
@@ -55,6 +60,7 @@ public partial class MainWindow : Window
         {
             if (WindowState == WindowState.Minimized && _s.Config.Settings.MinimizeToTray) Hide();
         };
+        Closing += (_, _) => SaveWindowPosition();
         Closed += (_, _) =>
         {
             _cancel?.Cancel();
@@ -179,6 +185,7 @@ public partial class MainWindow : Window
             RefreshProfiles();
             RefreshDiscovery();
             RefreshHosts(status);
+            RefreshNetwork();
             RefreshSettings();
             RefreshFooter(status);
         }
@@ -396,22 +403,36 @@ public partial class MainWindow : Window
 
     // ---- Navigation --------------------------------------------------------------------
 
-    private const int HomeView = 0;
-    private const int WebsitesView = 1;
-    private const int DiscoveryView = 3;
+    private const string HomeView = Navigation.Home;
+    private const string WebsitesView = Navigation.Websites;
+    private const string DiscoveryView = Navigation.Discovery;
+    private const string SettingsView = Navigation.Settings;
+    private string _currentView = Navigation.Home;
 
     private void Nav_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_ready) return;
-        ShowView(Nav.SelectedIndex);
+        if (!_ready || _reorderingNav || Nav.SelectedItem is not ListBoxItem { Tag: string page }) return;
+        ShowView(page);
     }
 
-    private void ShowView(int index)
+    private Dictionary<string, UIElement> Views => new()
     {
-        UIElement[] views = [ViewHome, ViewWebsites, ViewProfiles, ViewDiscovery, ViewHosts, ViewSettings];
-        for (int i = 0; i < views.Length; i++)
-            views[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
-        if (Nav.SelectedIndex != index) Nav.SelectedIndex = index;
+        [Navigation.Home] = ViewHome,
+        [Navigation.Websites] = ViewWebsites,
+        [Navigation.Discovery] = ViewDiscovery,
+        [Navigation.Profiles] = ViewProfiles,
+        [Navigation.Network] = ViewNetwork,
+        [Navigation.Hosts] = ViewHosts,
+        [Navigation.Settings] = ViewSettings
+    };
+
+    private void ShowView(string page)
+    {
+        foreach (var (id, view) in Views)
+            view.Visibility = id == page ? Visibility.Visible : Visibility.Collapsed;
+        _currentView = page;
+        ListBoxItem? item = Nav.Items.OfType<ListBoxItem>().FirstOrDefault(i => (string)i.Tag == page);
+        if (item is not null && !ReferenceEquals(Nav.SelectedItem, item)) Nav.SelectedItem = item;
         if (!_busy) _message = null;
         RefreshAll();
     }

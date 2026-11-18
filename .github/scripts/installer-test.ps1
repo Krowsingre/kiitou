@@ -135,6 +135,58 @@ if ((Get-FileHash $config).Hash -ne $hash) { throw "Installing over the existing
 Start-And-Close-Kiitou
 Write-Host "  reinstalled; settings untouched and Kiitou still starts"
 
+Write-Host "== Updating through the update window"
+if ($env:SIGNING_KEY) {
+    $key = [System.Security.Cryptography.ECDsa]::Create()
+    $key.ImportFromPem($env:SIGNING_KEY)
+    $setupFull = (Resolve-Path $Setup).Path
+    $signature = [Convert]::ToBase64String($key.SignData([System.IO.File]::ReadAllBytes($setupFull), [System.Security.Cryptography.HashAlgorithmName]::SHA256))
+    $updateFolder = Join-Path ([System.IO.Path]::GetTempPath()) "Kiitou-update"
+    New-Item -ItemType Directory -Force $updateFolder | Out-Null
+    $updater = Join-Path $updateFolder "Kiitou-updater.exe"
+    Copy-Item $exe $updater -Force
+    $request = Join-Path $updateFolder "update-request.json"
+    [ordered]@{
+        FromVersion = $Version; ToVersion = $Version; SetupPath = $setupFull; Signature = $signature
+        TargetExe = $exe; DownloadFolder = $updateFolder; Left = 60; Top = 40; ThemeColor = "teal"; ThemeMode = "dark"
+    } | ConvertTo-Json | Set-Content $request -Encoding utf8NoBOM
+    $before = Get-Content $config -Raw | ConvertFrom-Json
+
+    $window = Start-Process $updater -ArgumentList "--apply-update", "`"$request`"" -PassThru
+    Wait-Until { $window.Refresh(); $window.HasExited -or $window.MainWindowTitle -like "Kiitou*Updating" } "the update window" 60
+    Start-Sleep -Milliseconds 800
+    Save-Screenshot "update-window-live"
+    if (-not $window.WaitForExit(300000)) { Show-Diagnostics "update window"; $window.Kill(); throw "The update window did not finish within 5 minutes" }
+    if ($window.ExitCode -ne 0) { Show-Diagnostics "update window"; throw "The update window ended with exit code $($window.ExitCode)" }
+
+    $new = $null
+    Wait-Until {
+        $script:new = Get-Process Kiitou -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -like "Kiitou*Host Mapping Manager" } | Select-Object -First 1
+        $null -ne $script:new
+    } "the updated Kiitou to open" 60
+    $installLog = Join-Path $updateFolder "install.log"
+    if ((Test-Path $installLog) -and (Select-String -Path $installLog -Pattern "Internal error|Exception message|Runtime error" -Quiet)) {
+        throw "The update's install log reports errors"
+    }
+    [void]$new.CloseMainWindow()
+    if (-not $new.WaitForExit(10000)) { $new.Kill() }
+    # Closing Kiitou saves its window position; the user's data must be unchanged.
+    $after = Get-Content $config -Raw | ConvertFrom-Json
+    if (($after.Profiles | ConvertTo-Json -Depth 8) -ne ($before.Profiles | ConvertTo-Json -Depth 8) -or
+        ($after.Websites | ConvertTo-Json -Depth 8) -ne ($before.Websites | ConvertTo-Json -Depth 8)) {
+        throw "The update changed the user's profiles or websites"
+    }
+    Write-Host "  update window installed the signed setup program and opened the new Kiitou; settings kept"
+
+    # The next start removes what the update left behind.
+    Start-And-Close-Kiitou
+    $left = @(Get-ChildItem $updateFolder -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "Kiitou-updater.exe" })
+    if ($left.Count -ne 0) { throw "Files from the update were not cleaned up: $($left.Name -join ', ')" }
+    Write-Host "  files left by the update were cleaned up on the next start"
+} else {
+    Write-Host "  skipped: the KIITOU_UPDATE_SIGNING_KEY secret is not available to this build"
+}
+
 Write-Host "== Quiet uninstall"
 $uninstaller = Get-ChildItem $programDir -Filter "unins*.exe" | Select-Object -First 1
 if (-not $uninstaller) { throw "No uninstaller was installed" }
@@ -145,6 +197,7 @@ Wait-Until { Test-Path (Join-Path $logs 'uninstall.log') } "the uninstall log" 3
 Assert-CleanLog 'uninstall.log' "Uninstall"
 if (Test-Path $shortcut) { throw "The Start menu shortcut was left behind" }
 if (-not (Test-Path $config)) { throw "A quiet uninstall removed the user's settings; it should keep them" }
+if (Test-Path (Join-Path ([System.IO.Path]::GetTempPath()) "Kiitou-update")) { throw "The uninstaller left the update folder behind" }
 Write-Host "  program removed; settings kept (a quiet uninstall never asks, so it keeps them)"
 
 Remove-Item $dataDir -Recurse -Force -ErrorAction SilentlyContinue

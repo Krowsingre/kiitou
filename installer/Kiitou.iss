@@ -74,6 +74,9 @@ begin
 
   if CurUninstallStep = usPostUninstall then
   begin
+    // Files left from updates (downloaded setup programs, the update window's copy of Kiitou).
+    DelTree(ExpandConstant('{%TEMP}\Kiitou-update'), True, True, True);
+
     DataDir := ExpandConstant('{localappdata}\Kiitou');
     if DirExists(DataDir) and (not UninstallSilent) then
     begin

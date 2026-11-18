@@ -15,6 +15,10 @@ public static class KiitouTourNative {
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr window, out Rect rect);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, bool repaint);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint flags, int dx, int dy, uint data, UIntPtr extra);
+    public static void LeftDown() { mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); }
+    public static void LeftUp() { mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero); }
 
     private delegate bool EnumProc(IntPtr window, IntPtr parameter);
     [DllImport("user32.dll")] private static extern bool EnumWindows(EnumProc callback, IntPtr parameter);
@@ -196,8 +200,9 @@ $views = @(
     @{ Nav = "NavWebsites"; Control = "WebsiteList"; Name = "2-websites" },
     @{ Nav = "NavProfiles"; Control = "ProfileGrid"; Name = "3-profiles" },
     @{ Nav = "NavDiscovery"; Control = "TestGrid"; Name = "4-discovery-and-test" },
-    @{ Nav = "NavHosts"; Control = "HostsText"; Name = "5-hosts-file" },
-    @{ Nav = "NavSettings"; Control = "TrayOption"; Name = "6-settings" }
+    @{ Nav = "NavNetwork"; Control = "LogGrid"; Name = "5-network" },
+    @{ Nav = "NavHosts"; Control = "HostsText"; Name = "6-hosts-file" },
+    @{ Nav = "NavSettings"; Control = "TrayOption"; Name = "7-settings" }
 )
 
 Write-Host "== Every view (purple, dark)"
@@ -214,6 +219,52 @@ foreach ($view in $views) {
     Save-Shot $p "view-$($view.Name)"
     Write-Host "  $($view.Name) ok"
 }
+
+Write-Host "== Default menu order"
+$navNames = @("NavHome", "NavWebsites", "NavDiscovery", "NavProfiles", "NavNetwork", "NavHosts", "NavSettings")
+function Get-NavOrder($process) {
+    $items = foreach ($name in $navNames) {
+        $element = Find-ById $process $name
+        [pscustomobject]@{ Name = $name; Top = $element.Current.BoundingRectangle.Top }
+    }
+    return @($items | Sort-Object Top | ForEach-Object Name)
+}
+$order = Get-NavOrder $p
+if (($order -join ",") -ne ($navNames -join ",")) { throw "Unexpected default menu order: $($order -join ', ')" }
+Write-Host "  $($order -join ', ')"
+
+Write-Host "== Dragging a menu item"
+$settingsRect = (Find-ById $p "NavSettings").Current.BoundingRectangle
+$homeRect = (Find-ById $p "NavHome").Current.BoundingRectangle
+[void][KiitouTourNative]::SetForegroundWindow($p.MainWindowHandle)
+$x = [int]($settingsRect.Left + $settingsRect.Width / 2)
+[void][KiitouTourNative]::SetCursorPos($x, [int]($settingsRect.Top + $settingsRect.Height / 2))
+Start-Sleep -Milliseconds 200
+[KiitouTourNative]::LeftDown()
+$fromY = [int]($settingsRect.Top + $settingsRect.Height / 2)
+$toY = [int]($homeRect.Top + 4)
+for ($y = $fromY; $y -ge $toY; $y -= 6) {
+    [void][KiitouTourNative]::SetCursorPos($x, $y)
+    Start-Sleep -Milliseconds 15
+}
+[void][KiitouTourNative]::SetCursorPos($x, $toY)
+Start-Sleep -Milliseconds 200
+[KiitouTourNative]::LeftUp()
+Start-Sleep -Milliseconds 600
+Assert-Alive $p "dragging a menu item"
+$order = Get-NavOrder $p
+if ($order[0] -ne "NavSettings") { Save-Shot $p "failure"; throw "Dragging Settings to the top did not move it (order: $($order -join ', '))" }
+Save-Shot $p "menu-reordered"
+$savedOrder = (Get-Content $configPath -Raw | ConvertFrom-Json).Settings.NavOrder
+if ($savedOrder[0] -ne "settings") { throw "The new menu order was not saved (saved: $($savedOrder -join ', '))" }
+Stop-Kiitou $p
+$p = Start-Kiitou
+$order = Get-NavOrder $p
+if ($order[0] -ne "NavSettings") { throw "The menu order was not kept after restarting (order: $($order -join ', '))" }
+Write-Host "  Settings dragged to the top; order saved and kept after a restart"
+Stop-Kiitou $p
+Write-Config "purple" "dark" $false
+$p = Start-Kiitou
 
 Write-Host "== Layout and spacing rules"
 Stop-Kiitou $p
@@ -241,6 +292,25 @@ Write-Host "  window stays at 1040 x 622"
 Stop-Kiitou $p
 $saved = Get-Content $configPath -Raw | ConvertFrom-Json
 if ($saved.Websites.Count -ne 4 -or $saved.Profiles.Count -ne 2) { throw "Configuration changed during the tour" }
+
+Write-Host "== Update window stages (design preview)"
+$homeShot = Join-Path $ShotDir "view-1-home.png"
+foreach ($stage in "downloading", "installing", "error") {
+    $preview = Start-Process $exeCopy -ArgumentList "--update-preview", $stage, "`"$homeShot`"", "purple", "dark" -PassThru
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt 60) {
+        $preview.Refresh()
+        if ($preview.HasExited -or $preview.MainWindowHandle -ne 0) { break }
+        Start-Sleep -Milliseconds 250
+    }
+    if ($preview.HasExited) { throw "The update window preview exited (stage $stage, exit code $($preview.ExitCode))" }
+    if ($preview.MainWindowTitle -notlike "Kiitou*Updating") { throw "Unexpected update window title '$($preview.MainWindowTitle)'" }
+    Start-Sleep -Milliseconds 900
+    Save-Shot $preview "update-$stage"
+    [void]$preview.CloseMainWindow()
+    if (-not $preview.WaitForExit(8000)) { $preview.Kill() }
+    Write-Host "  $stage ok"
+}
 
 Write-Host "== All fourteen themes"
 foreach ($color in "purple", "blue", "green", "gold", "red", "silver", "teal") {

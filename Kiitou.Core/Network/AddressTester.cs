@@ -58,11 +58,14 @@ public sealed partial class HttpsAddressTester : IAddressTester
     private const int MaximumBodyBytes = 64 * 1024;
     private readonly TimeSpan _timeout;
     private readonly int _port;
+    private readonly Func<Socks5Proxy?> _proxy;
 
-    public HttpsAddressTester(TimeSpan? timeout = null, int port = 443)
+    /// <param name="proxy">Gives the proxy to test through, or null for a direct connection.</param>
+    public HttpsAddressTester(TimeSpan? timeout = null, int port = 443, Func<Socks5Proxy?>? proxy = null)
     {
         _timeout = timeout ?? TimeSpan.FromSeconds(10);
         _port = port;
+        _proxy = proxy ?? (() => null);
     }
 
     public async Task<AddressTestResult> TestAsync(string hostname, string ipAddress, CancellationToken cancellationToken)
@@ -77,6 +80,7 @@ public sealed partial class HttpsAddressTester : IAddressTester
         SslPolicyErrors? policyErrors = null;
         X509Certificate2? certificate = null;
         var total = Stopwatch.StartNew();
+        Socks5Proxy? proxy = _proxy();
 
         using var handler = new SocketsHttpHandler
         {
@@ -87,7 +91,16 @@ public sealed partial class HttpsAddressTester : IAddressTester
             ConnectTimeout = _timeout,
             ConnectCallback = async (_, token) =>
             {
-                // Always dial the candidate address, whatever the hostname resolves to.
+                // Always dial the candidate address, whatever the hostname resolves to. Through a
+                // proxy, the proxy is asked to connect to that exact address.
+                if (proxy is not null)
+                {
+                    var viaProxy = Stopwatch.StartNew();
+                    Stream tunnel = await Socks5Client.ConnectAsync(proxy, address, _port, token).ConfigureAwait(false);
+                    connectMs = viaProxy.Elapsed.TotalMilliseconds;
+                    connected = true;
+                    return tunnel;
+                }
                 var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
                 try
                 {
@@ -218,6 +231,8 @@ public sealed partial class HttpsAddressTester : IAddressTester
         {
             switch (inner)
             {
+                case ProxyException proxyError:
+                    return proxyError.Message;
                 case AuthenticationException:
                     return "The secure connection could not be established: " + inner.Message;
                 case SocketException socket:

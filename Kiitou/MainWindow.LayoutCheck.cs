@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
+using Kiitou.Models;
 
 namespace Kiitou;
 
@@ -16,18 +17,23 @@ public partial class MainWindow
     private const double Gap = 12;
     private const double Tolerance = 1.0;
 
-    private static readonly string[] ViewNames = ["Home", "Websites", "Profiles", "Discovery & Test", "Hosts File", "Settings"];
+    private static readonly (string Id, string Name)[] ViewNames =
+    [
+        (Navigation.Home, "Home"), (Navigation.Websites, "Websites"), (Navigation.Discovery, "Discovery & Test"),
+        (Navigation.Profiles, "Profiles"), (Navigation.Network, "Network"), (Navigation.Hosts, "Hosts File"),
+        (Navigation.Settings, "Settings")
+    ];
 
     public List<string> RunLayoutCheck()
     {
         var problems = new List<string>();
-        for (int view = 0; view < ViewNames.Length; view++)
+        foreach (var (id, name) in ViewNames)
         {
-            ShowView(view);
+            ShowView(id);
             UpdateLayout();
             Dispatcher.Invoke(() => { }, DispatcherPriority.Loaded);
             UpdateLayout();
-            CheckView(ViewNames[view], problems);
+            CheckView(name, problems);
         }
         CheckHeaderAndSettings(problems);
         ShowView(HomeView);
@@ -124,7 +130,7 @@ public partial class MainWindow
     /// <summary>The spacing rules for the header and the Settings cards.</summary>
     private void CheckHeaderAndSettings(List<string> problems)
     {
-        ShowView(ViewNames.Length - 1);
+        ShowView(SettingsView);
         UpdateLayout();
         Dispatcher.Invoke(() => { }, DispatcherPriority.Loaded);
         UpdateLayout();

@@ -85,7 +85,9 @@ jobs:
 
       - name: Test the installer
         shell: pwsh
-        timeout-minutes: 15
+        timeout-minutes: 20
+        env:
+          SIGNING_KEY: ${{ secrets.KIITOU_UPDATE_SIGNING_KEY }}
         run: |
           $version = (Get-Content version.txt -Raw).Trim()
           ./.github/scripts/installer-test.ps1 -Setup "out-installer/Kiitou-Setup-$version.exe" -Version $version -ShotDir shots
