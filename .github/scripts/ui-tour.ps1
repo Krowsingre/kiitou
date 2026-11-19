@@ -199,7 +199,7 @@ $views = @(
     @{ Nav = "NavHome"; Control = "HomeGrid"; Name = "1-home" },
     @{ Nav = "NavWebsites"; Control = "WebsiteList"; Name = "2-websites" },
     @{ Nav = "NavProfiles"; Control = "ProfileGrid"; Name = "3-profiles" },
-    @{ Nav = "NavDiscovery"; Control = "TestGrid"; Name = "4-discovery-and-test" },
+    @{ Nav = "NavDiscovery"; Control = "TestGrid"; Name = "4-inspector" },
     @{ Nav = "NavNetwork"; Control = "LogGrid"; Name = "5-network" },
     @{ Nav = "NavHosts"; Control = "HostsText"; Name = "6-hosts-file" },
     @{ Nav = "NavSettings"; Control = "TrayOption"; Name = "7-settings" }

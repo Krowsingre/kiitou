@@ -24,7 +24,7 @@ decided.
 | --- | --- |
 | Approved original layout | S. **Open:** user's visual sign-off |
 | Not fullscreen; between 720 x 450 and Echo Light's 1093 x 622 | E (window opens at 1040 x 622 and refuses to change size), per `AMENDMENTS.md` |
-| Entries, Profiles, Settings and left navigation | E (all six views opened; Verification merged into Discovery & Test per `AMENDMENTS.md`) |
+| Entries, Profiles, Settings and left navigation | E (all six views opened; Verification merged into Discovery & Test, since renamed Inspector, per `AMENDMENTS.md`) |
 | Search and filter, entry statuses, optional tray | S for search, filter and statuses; E for starting with the tray icon on. **Open:** minimizing to and restoring from the tray by hand |
 | Seven icon colors x dark/light = 14; icon changes with color | E (all 14 start and close cleanly), S |
 

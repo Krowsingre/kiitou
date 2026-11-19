@@ -27,7 +27,7 @@ the pass audits, **this file wins**.
 ### Window and layout
 - **One fixed window size, 1040 x 622.** It cannot be resized or maximized. The size lies between
   the user's two references: 720 x 450 and Echo Light's 1093 x 622.
-- **Every button row is a single row** laid out to fit; nothing wraps. On Discovery & Test the
+- **Every button row is a single row** laid out to fit; nothing wraps. On the Inspector page the
   website picker and its buttons share one row.
 - **Spacing rules:** 12 between cards, around the page, and between the header button and the
   badge; 8 between "Profile:" and its drop-down; the drop-down's right edge aligns with the
@@ -42,7 +42,7 @@ the pass audits, **this file wins**.
   both, stacked), replacing the single combined drop-down.
 
 ### Redundancy removed
-- Verification is merged into Discovery & Test (six navigation items instead of seven). The
+- Verification is merged into Discovery & Test (renamed **Inspector** in 0.9.3) (six navigation items instead of seven). The
   reasons for a status are shown under the test table.
 - Removed: the per-row "..." button on Home, "Test Selected" on Websites, "Apply Selected
   Profile" and "Remove Kiitou Mappings" on Hosts File, Import/Export on Profiles (they remain on
@@ -102,7 +102,7 @@ the pass audits, **this file wins**.
   none is required, but tests may now use one.
 - Kiitou does **not** act as a VPN or Tor. It cannot change which catalogue a streaming service
   shows; that depends on where the user appears to be, not on which server address is chosen.
-- **Menu order:** Home, Websites, Discovery & Test, Profiles, Network, Hosts File, Settings by
+- **Menu order:** Home, Websites, Inspector, Profiles, Network, Hosts File, Settings by
   default. Items can be dragged into any order, which is saved. It is not announced and there is
   no reset.
 - **Updating in place:** a temporary copy of Kiitou opens an update window in the same size and
@@ -116,6 +116,9 @@ the pass audits, **this file wins**.
 - **Safety copy of the settings before every update**, in `%LOCALAPPDATA%\Kiitou\config-backups`,
   keeping the newest 10.
 - **Update leftovers** are deleted on the next start and by the uninstaller.
+
+### Renamed page (approved 2026-11-18, Kiitou 0.9.3)
+- **"Discovery & Test" is now "Inspector".** Websites and Inspector stay separate pages.
 
 ### Not verified
 - AbuseIPDB and VirusTotal were tested only against simulated replies; no account was available.

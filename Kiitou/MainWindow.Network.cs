@@ -9,7 +9,8 @@ using Kiitou.Verification;
 
 namespace Kiitou;
 
-// Discovery & Test view: DNS discovery, address tests, and the reasons behind each status.
+// Inspector page: DNS discovery, address tests, and the reasons behind each status.
+// (Its internal page identifier stays "discovery", so saved menu orders keep working.)
 public partial class MainWindow
 {
     private Guid? _pendingDiscoverySite;

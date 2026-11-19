@@ -79,7 +79,7 @@
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE774;" Margin="0,0,10,0"/><TextBlock Text="Websites"/></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem x:Name="NavDiscovery" Tag="discovery">
-                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" Margin="0,0,10,0"/><TextBlock Text="Discovery &amp; Test"/></StackPanel>
+                        <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE721;" Margin="0,0,10,0"/><TextBlock Text="Inspector"/></StackPanel>
                     </ListBoxItem>
                     <ListBoxItem x:Name="NavProfiles" Tag="profiles">
                         <StackPanel Orientation="Horizontal"><TextBlock Style="{StaticResource Glyph}" Text="&#xE81E;" Margin="0,0,10,0"/><TextBlock Text="Profiles"/></StackPanel>
@@ -310,7 +310,7 @@
                                Text="Switching and saving never change the Windows hosts file. Only Apply Selected Profile does. Import and export are on Home."/>
                 </Grid>
 
-                <!-- ============ Discovery & Test ============ -->
+                <!-- ============ Inspector (finds and checks a website's IP addresses) ============ -->
                 <Grid x:Name="ViewDiscovery" Visibility="Collapsed">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
