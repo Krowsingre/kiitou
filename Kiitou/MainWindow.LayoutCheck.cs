@@ -19,7 +19,7 @@ public partial class MainWindow
 
     private static readonly (string Id, string Name)[] ViewNames =
     [
-        (Navigation.Home, "Home"), (Navigation.Websites, "Websites"), (Navigation.Discovery, "Discovery & Test"),
+        (Navigation.Home, "Home"), (Navigation.Websites, "Websites"), (Navigation.Discovery, "Inspector"),
         (Navigation.Profiles, "Profiles"), (Navigation.Network, "Network"), (Navigation.Hosts, "Hosts File"),
         (Navigation.Settings, "Settings")
     ];
